@@ -194,8 +194,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [cvs, setCvs] = useState({ width: 0, height: 0 });
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
-  const [fontSize, setFontSize] = useState(18);
-  const [pendingText, setPendingText] = useState("");
+  const [fontSize] = useState(18);
   const [zoom, setZoom] = useState(100);
   const baseScale = useRef(1);
 
@@ -383,12 +382,13 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
     const p = getPos(e);
     if (tool === "text") {
-      // 入力欄のテキストを配置
-      if (pendingText.trim()) {
+      // 画面タップでpromptダイアログを表示して入力
+      const text = window.prompt("テキストを入力してください");
+      if (text && text.trim()) {
         const id = Date.now().toString();
-        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: pendingText.trim(), color, fontSize, boxed: false }]);
+        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: text.trim(), color, fontSize, boxed: false }]);
         setSelId(id);
-        setPendingText("");
+        setTool("select");
       }
       return;
     }
@@ -533,91 +533,114 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     { id: "rectangle", label: "▢ 四角" }, { id: "arrow", label: "➡ 矢印" }, { id: "text", label: "T 文字" },
   ];
 
+  // Apple Pencil対応: pointerdownで即座にアクション発火（pen/touch/mouse全対応）
+  const lastAction = useRef(0);
+  const penBtn = (action: () => void) => ({
+    onPointerDown: () => {
+      const now = Date.now();
+      if (now - lastAction.current < 300) return; // 二重発火防止
+      lastAction.current = now;
+      action();
+    },
+  });
+
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ touchAction: "none", overscrollBehavior: "none" }}>
-      {/* ツールバー */}
-      <div className="flex flex-wrap items-center justify-between px-1.5 py-1 bg-gray-900 gap-1">
-        <div className="flex gap-0.5 flex-wrap items-center">
-          <button onClick={() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); }}
-            className={`px-2 py-1.5 rounded text-xs font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
-            {imageMode ? "🔍 画像操作中" : "🔍 画像操作"}
+    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ overscrollBehavior: "none" }}>
+      {/* ツールバー 上段: ツール選択 + アクションボタン */}
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1" style={{ minHeight: 44, touchAction: "manipulation" }}>
+        <div className="flex gap-1 items-center flex-wrap">
+          <button {...penBtn(() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); })}
+            className={`rounded text-sm font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
+            style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
+            {imageMode ? "🔍操作中" : "🔍画像"}
           </button>
-          <span className="w-px h-5 bg-gray-600 mx-1" />
           {!imageMode && allTools.map((t) => (
-            <button key={t.id} onClick={() => { setTool(t.id); if (t.id !== "select") setSelId(null); }}
-              className={`px-2 py-1.5 rounded text-xs font-medium ${tool === t.id && !imageMode ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+            <button key={t.id} {...penBtn(() => { setTool(t.id); if (t.id !== "select") setSelId(null); })}
+              className={`rounded text-sm font-medium ${tool === t.id && !imageMode ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
+              style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
               {t.label}
             </button>
           ))}
-          {!imageMode && <span className="w-px h-5 bg-gray-600 mx-1" />}
-          {COLORS.map((c) => (
-            <button key={c.v} onClick={() => { setColor(c.v); if (selId) updateSel({ color: c.v }); }}
-              className={`w-5 h-5 rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
-              style={{ backgroundColor: c.v }} title={c.l} />
-          ))}
-          <span className="w-px h-5 bg-gray-600 mx-1" />
-          <span className="text-gray-400 text-xs">画像:</span>
-          <input type="range" min={50} max={200} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-16 accent-green-500" />
-          <span className="text-green-400 text-xs">{zoom}%</span>
         </div>
-        <div className="flex gap-1">
-          {selId && <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }} className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">削除</button>}
-          <button onClick={() => { setAnns((p) => p.slice(0, -1)); setSelId(null); }} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">↩</button>
-          <button onClick={handleSave} className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">保存</button>
-          <button onClick={onClose} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">✕</button>
+        <div className="flex gap-1 items-center flex-shrink-0">
+          {selId && <button {...penBtn(() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); })}
+            className="bg-red-600 text-white rounded text-sm font-bold active:bg-red-700"
+            style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>削除</button>}
+          <button {...penBtn(() => { setAnns((p) => p.slice(0, -1)); setSelId(null); })}
+            className="bg-gray-700 text-gray-300 rounded text-sm active:bg-gray-500"
+            style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>↩</button>
+          <button {...penBtn(handleSave)}
+            className="bg-green-600 text-white rounded text-sm font-bold active:bg-green-700"
+            style={{ minWidth: 52, minHeight: 44, padding: "0 12px", touchAction: "manipulation" }}>保存</button>
+          <button {...penBtn(onClose)}
+            className="bg-gray-700 text-gray-300 rounded text-sm active:bg-gray-500"
+            style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>✕</button>
+        </div>
+      </div>
+
+      {/* ツールバー 下段: カラー + ズーム */}
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-800 border-t border-gray-700 gap-2" style={{ minHeight: 40, touchAction: "manipulation" }}>
+        <div className="flex gap-1.5 items-center">
+          {COLORS.map((c) => (
+            <button key={c.v} {...penBtn(() => { setColor(c.v); if (selId) updateSel({ color: c.v }); })}
+              className={`rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
+              style={{ width: 28, height: 28, minWidth: 28, minHeight: 28, backgroundColor: c.v, touchAction: "manipulation" }}
+              title={c.l} />
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-gray-400 text-sm">画像:</span>
+          <input type="range" min={50} max={200} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-20 accent-green-500" style={{ minHeight: 28, touchAction: "manipulation" }} />
+          <span className="text-green-400 text-sm font-bold">{zoom}%</span>
         </div>
       </div>
 
       {/* テキスト選択時: 文字サイズスライダー */}
       {sel?.type === "text" && (
-        <div className="flex flex-wrap items-center gap-3 px-3 py-1.5 bg-gray-800 border-t border-gray-700">
+        <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800 border-t border-gray-700" style={{ minHeight: 40, touchAction: "manipulation" }}>
           <span className="text-gray-300 text-sm font-bold">文字サイズ:</span>
-          <input type="range" min={10} max={60} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-32 accent-blue-500" />
+          <input type="range" min={10} max={60} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-32 accent-blue-500" style={{ minHeight: 28, touchAction: "manipulation" }} />
           <span className="text-white text-sm font-bold">{sel.fontSize || 18}px</span>
         </div>
       )}
 
       {/* 丸・四角・矢印選択時プロパティ */}
       {sel && (sel.type === "circle" || sel.type === "rectangle" || sel.type === "arrow") && (
-        <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
-          <span className="text-gray-400 text-xs">色:</span>
+        <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700" style={{ minHeight: 40, touchAction: "manipulation" }}>
+          <span className="text-gray-400 text-sm">色:</span>
           {COLORS.map((c) => (
-            <button key={c.v} onClick={() => updateSel({ color: c.v })}
-              className={`w-4 h-4 rounded-full border ${(sel.color || "#FF0000") === c.v ? "border-white" : "border-gray-600"}`}
-              style={{ backgroundColor: c.v }} />
+            <button key={c.v} {...penBtn(() => updateSel({ color: c.v }))}
+              className={`rounded-full border-2 ${(sel.color || "#FF0000") === c.v ? "border-white" : "border-gray-600"}`}
+              style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, backgroundColor: c.v, touchAction: "manipulation" }} />
           ))}
-          <span className="text-gray-400 text-xs">太さ:</span>
-          <input type="range" min={1} max={8} value={sel.lineWidth || 3} onChange={(e) => updateSel({ lineWidth: Number(e.target.value) })} className="w-14 accent-blue-500" />
-          <span className="text-gray-300 text-xs">{sel.lineWidth || 3}px</span>
-        </div>
-      )}
-
-      {tool !== "text" && !imageMode && (
-        <div className="px-2 py-0.5 bg-gray-800 text-gray-500 text-xs text-center hidden sm:block">
-          {tool === "select" ? "図形をタップで選択・移動。テキストはダブルタップで編集。削除は×ボタン。" :
-           "ドラッグで図形を描く。Shiftで正円/正方形。"}
+          <span className="text-gray-400 text-sm ml-2">太さ:</span>
+          <input type="range" min={1} max={8} value={sel.lineWidth || 3} onChange={(e) => updateSel({ lineWidth: Number(e.target.value) })} className="w-16 accent-blue-500" style={{ minHeight: 28, touchAction: "manipulation" }} />
+          <span className="text-gray-300 text-sm">{sel.lineWidth || 3}px</span>
         </div>
       )}
 
       {/* キャンバス + テキストオーバーレイ */}
-      <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2"
+      <div ref={containerRef} className={`flex-1 flex items-center justify-center p-2 ${imageMode ? "overflow-auto" : "overflow-hidden"}`}
         style={{ touchAction: imageMode ? "auto" : "none" }}>
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
             style={{ position: "absolute", top: 0, left: 0, touchAction: imageMode ? "auto" : "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
-            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
+            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp}
+            onPointerDown={(e) => { if (e.pointerType === "pen" && !imageMode) { handleCanvasDown(e as unknown as React.MouseEvent); } }}
+            onPointerMove={(e) => { if (e.pointerType === "pen" && !imageMode) { handleCanvasMove(e as unknown as React.MouseEvent); } }}
+            onPointerUp={(e) => { if (e.pointerType === "pen" && !imageMode) { handleCanvasUp(e as unknown as React.MouseEvent); } }} />
           {/* テキスト注釈はHTML要素で表示 */}
           {/* 図形の×削除ボタン */}
           {selId && !imageMode && sel && sel.type !== "text" && (() => {
             const bb = getBBox(sel);
             return (
               <button
-                onClick={(e) => { e.stopPropagation(); setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }}
-                style={{ position: "absolute", left: bb.x2 - 4, top: bb.y1 - 16, width: 28, height: 28, borderRadius: 14,
+                {...penBtn(() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); })}
+                style={{ position: "absolute", left: bb.x2 - 4, top: bb.y1 - 16, width: 32, height: 32, borderRadius: 16,
                   background: "#ff3333", color: "white", border: "2px solid white", fontSize: 16, fontWeight: "bold",
-                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 25 }}>
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 25, touchAction: "manipulation" }}>
                 ×
               </button>
             );
@@ -631,18 +654,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
-      {/* テキスト入力欄（画面下部固定） */}
+      {/* テキストモード時のガイド表示 */}
       {tool === "text" && !imageMode && (
-        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700">
-          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">文字:</span>
-          <input
-            type="text" value={pendingText} onChange={(e) => setPendingText(e.target.value)}
-            placeholder="入力してから画面をタップで配置"
-            className="flex-1 px-3 py-2 rounded-lg text-base border-2 border-yellow-400 bg-white"
-          />
-          <span className="text-yellow-200 text-xs flex-shrink-0">サイズ:</span>
-          <input type="range" min={10} max={60} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-16 accent-yellow-400" />
-          <span className="text-yellow-200 text-sm font-bold">{fontSize}px</span>
+        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center" style={{ touchAction: "manipulation" }}>
+          <span className="text-yellow-200 text-sm font-bold">画面をタップして文字を配置</span>
         </div>
       )}
 

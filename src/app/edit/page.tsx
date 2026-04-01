@@ -81,13 +81,17 @@ export default function EditPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => router.push("/proposal")}
-                className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100"
+                onPointerDown={() => router.push("/proposal")}
+                className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100 active:bg-gray-200"
+                style={{ touchAction: "manipulation", minHeight: 44 }}
               >
                 ← 戻る
               </button>
               <button
                 onClick={() => router.push("/")}
-                className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100"
+                onPointerDown={() => router.push("/")}
+                className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100 active:bg-gray-200"
+                style={{ touchAction: "manipulation", minHeight: 44 }}
               >
                 トップ
               </button>
@@ -169,8 +173,9 @@ export default function EditPage() {
 
         <button
           onClick={addSection}
-          className="w-full py-5 border-3 border-dashed border-gray-300 rounded-2xl text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-colors font-bold text-lg"
-          style={{ borderWidth: "3px" }}
+          onPointerDown={addSection}
+          className="w-full py-5 border-3 border-dashed border-gray-300 rounded-2xl text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors font-bold text-lg"
+          style={{ borderWidth: "3px", touchAction: "manipulation", minHeight: 56 }}
         >
           + セクションを追加
         </button>
@@ -178,11 +183,13 @@ export default function EditPage() {
 
       {/* Bottom bar */}
       {sections.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4" style={{ touchAction: "manipulation", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto">
             <button
               onClick={goToPreview}
-              className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 transition-colors shadow-lg"
+              onPointerDown={() => goToPreview()}
+              className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-lg"
+              style={{ touchAction: "manipulation", minHeight: 56 }}
             >
               次へ：プレビューを確認 →
             </button>

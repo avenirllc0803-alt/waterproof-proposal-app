@@ -74,13 +74,17 @@ export default function Home() {
             </p>
             <button
               onClick={() => router.push("/proposal")}
-              className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-blue-700 transition-colors shadow"
+              onPointerDown={() => router.push("/proposal")}
+              className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow"
+              style={{ touchAction: "manipulation", minHeight: 52 }}
             >
               作成する
             </button>
             <button
               onClick={loadProposalDemo}
-              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 transition-colors"
+              onPointerDown={loadProposalDemo}
+              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              style={{ touchAction: "manipulation", minHeight: 48 }}
             >
               デモで試す
             </button>
@@ -101,13 +105,17 @@ export default function Home() {
             </p>
             <button
               onClick={() => router.push("/estimate")}
-              className="w-full bg-green-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-green-700 transition-colors shadow"
+              onPointerDown={() => router.push("/estimate")}
+              className="w-full bg-green-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-green-700 active:bg-green-800 transition-colors shadow"
+              style={{ touchAction: "manipulation", minHeight: 52 }}
             >
               作成する
             </button>
             <button
               onClick={loadEstimateDemo}
-              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 transition-colors"
+              onPointerDown={loadEstimateDemo}
+              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              style={{ touchAction: "manipulation", minHeight: 48 }}
             >
               デモで試す
             </button>
@@ -128,13 +136,17 @@ export default function Home() {
             </p>
             <button
               onClick={() => router.push("/invoice")}
-              className="w-full bg-orange-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-orange-700 transition-colors shadow"
+              onPointerDown={() => router.push("/invoice")}
+              className="w-full bg-orange-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-orange-700 active:bg-orange-800 transition-colors shadow"
+              style={{ touchAction: "manipulation", minHeight: 52 }}
             >
               作成する
             </button>
             <button
               onClick={loadInvoiceDemo}
-              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 transition-colors"
+              onPointerDown={loadInvoiceDemo}
+              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              style={{ touchAction: "manipulation", minHeight: 48 }}
             >
               デモで試す
             </button>

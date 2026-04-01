@@ -80,8 +80,10 @@ export default function SectionEditor({
           {/* 並べ替えボタン */}
           <button
             onClick={() => onMove("up")}
+            onPointerDown={() => { if (index > 0) onMove("up"); }}
             disabled={index === 0}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 active:bg-gray-300 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"
+            style={{ touchAction: "manipulation", minWidth: 44, minHeight: 44 }}
             title="上に移動"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,8 +92,10 @@ export default function SectionEditor({
           </button>
           <button
             onClick={() => onMove("down")}
+            onPointerDown={() => { if (index < total - 1) onMove("down"); }}
             disabled={index === total - 1}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 active:bg-gray-300 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"
+            style={{ touchAction: "manipulation", minWidth: 44, minHeight: 44 }}
             title="下に移動"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,13 +109,17 @@ export default function SectionEditor({
               <span className="text-sm text-red-600 font-medium">削除する？</span>
               <button
                 onClick={onDelete}
-                className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600"
+                onPointerDown={onDelete}
+                className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 active:bg-red-700"
+                style={{ touchAction: "manipulation", minHeight: 40 }}
               >
                 はい
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300"
+                onPointerDown={() => setShowDeleteConfirm(false)}
+                className="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-300 active:bg-gray-400"
+                style={{ touchAction: "manipulation", minHeight: 40 }}
               >
                 いいえ
               </button>
@@ -119,7 +127,9 @@ export default function SectionEditor({
           ) : (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+              onPointerDown={() => setShowDeleteConfirm(true)}
+              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg"
+              style={{ touchAction: "manipulation", minWidth: 44, minHeight: 44 }}
               title="このセクションを削除"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +161,9 @@ export default function SectionEditor({
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => setShowAnnotation(true)}
-                    className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm sm:text-base font-bold hover:bg-red-600 transition-colors"
+                    onPointerDown={() => setShowAnnotation(true)}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm sm:text-base font-bold hover:bg-red-600 active:bg-red-700 transition-colors"
+                    style={{ touchAction: "manipulation", minHeight: 48 }}
                   >
                     注釈を描く
                   </button>

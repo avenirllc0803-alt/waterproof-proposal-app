@@ -55,15 +55,18 @@ export default function ProposalPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off" data-form-type="other">
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">会社名</label>
             <input
               type="text"
+              name="company_name_field"
               value={form.companyName}
               onChange={(e) => setForm({ ...form, companyName: e.target.value })}
               className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
               placeholder="株式会社○○防水"
+              autoComplete="off"
+              data-lpignore="true"
             />
           </div>
           <div>
@@ -72,11 +75,14 @@ export default function ProposalPage() {
             </label>
             <input
               type="text"
+              name="customer_name_field"
               value={form.customerName}
               onChange={(e) => setForm({ ...form, customerName: e.target.value })}
               className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
               placeholder="○○不動産 様"
               required
+              autoComplete="off"
+              data-lpignore="true"
             />
           </div>
           <div>
@@ -85,26 +91,32 @@ export default function ProposalPage() {
             </label>
             <input
               type="text"
+              name="property_name_field"
               value={form.propertyName}
               onChange={(e) => setForm({ ...form, propertyName: e.target.value })}
               className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
               placeholder="○○マンション 屋上防水工事"
               required
+              autoComplete="off"
+              data-lpignore="true"
             />
           </div>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">日付</label>
             <input
               type="date"
+              name="work_date_field"
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
               className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
               required
+              autoComplete="off"
             />
           </div>
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 transition-colors shadow-lg"
+            className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-lg"
+            style={{ touchAction: "manipulation", minHeight: 56 }}
           >
             次へ進む →
           </button>
@@ -113,7 +125,9 @@ export default function ProposalPage() {
         <div className="mt-6 pt-6 border-t border-gray-200">
           <button
             onClick={() => router.push("/")}
-            className="w-full text-gray-500 py-3 rounded-xl text-base hover:bg-gray-100 transition-colors"
+            onPointerDown={() => router.push("/")}
+            className="w-full text-gray-500 py-3 rounded-xl text-base hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            style={{ touchAction: "manipulation", minHeight: 48 }}
           >
             ← トップに戻る
           </button>

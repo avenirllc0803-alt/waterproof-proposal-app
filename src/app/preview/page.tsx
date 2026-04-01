@@ -67,15 +67,16 @@ export default function PreviewPage() {
 
       const blob = pdf.output("blob");
       const url = URL.createObjectURL(blob);
-      // iOS Safari対応: 新しいタブで開く（ダウンロードまたは「ファイルに保存」で保存可能）
-      const w = window.open(url, "_blank");
-      if (!w) {
-        // ポップアップブロック時はリンクで対応
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = customerInfo ? `提案書_${customerInfo.propertyName}_${customerInfo.date}.pdf` : "提案書.pdf";
-        a.click();
-      }
+      const fileName = customerInfo ? `提案書_${customerInfo.propertyName}_${customerInfo.date}.pdf` : "提案書.pdf";
+      // iOS Safari対応: aタグのダウンロードリンクで保存（ポップアップブロック回避）
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // メモリ解放を少し遅らせる（ダウンロード開始を確保）
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
     } catch (err) {
       console.error("PDF generation failed:", err);
       alert("PDF生成に失敗しました。もう一度お試しください。");
@@ -95,13 +96,17 @@ export default function PreviewPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => router.push("/edit")}
-                className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100"
+                onPointerDown={() => router.push("/edit")}
+                className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100 active:bg-gray-200"
+                style={{ touchAction: "manipulation", minHeight: 44 }}
               >
                 ← 編集に戻る
               </button>
               <button
                 onClick={() => router.push("/")}
-                className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100"
+                onPointerDown={() => router.push("/")}
+                className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100 active:bg-gray-200"
+                style={{ touchAction: "manipulation", minHeight: 44 }}
               >
                 トップ
               </button>
@@ -109,8 +114,10 @@ export default function PreviewPage() {
             <h1 className="font-bold text-gray-800 text-lg">プレビュー</h1>
             <button
               onClick={generatePdf}
+              onPointerDown={() => { if (!generating) generatePdf(); }}
               disabled={generating}
-              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow"
+              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow"
+              style={{ touchAction: "manipulation", minHeight: 48 }}
             >
               {generating ? "生成中..." : "PDF出力"}
             </button>
@@ -233,11 +240,13 @@ export default function PreviewPage() {
       </div>
 
       {/* Bottom bar (mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 sm:hidden">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 sm:hidden" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         <button
           onClick={generatePdf}
+          onPointerDown={() => { if (!generating) generatePdf(); }}
           disabled={generating}
-          className="w-full bg-green-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow-lg"
+          className="w-full bg-green-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow-lg"
+          style={{ touchAction: "manipulation", minHeight: 56 }}
         >
           {generating ? "PDF生成中..." : "PDFをダウンロード"}
         </button>
