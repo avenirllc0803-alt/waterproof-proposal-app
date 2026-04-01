@@ -10,13 +10,10 @@ export interface Annotation {
   type: "circle" | "arrow" | "text";
   x: number;
   y: number;
-  // circle
   radiusX?: number;
   radiusY?: number;
-  // arrow
   endX?: number;
   endY?: number;
-  // text
   text?: string;
 }
 
@@ -32,4 +29,34 @@ export interface ProposalSection {
 export interface Proposal {
   customerInfo: CustomerInfo;
   sections: ProposalSection[];
+}
+
+// 見積書・請求書用の型定義
+export interface EstimateItem {
+  id: string;
+  category: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  note: string;
+}
+
+export interface EstimateInfo {
+  customerInfo: CustomerInfo;
+  items: EstimateItem[];
+  validUntil: string;
+  notes: string;
+  taxRate: number;
+}
+
+export interface InvoiceInfo {
+  customerInfo: CustomerInfo;
+  items: EstimateItem[];
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  bankInfo: string;
+  notes: string;
+  taxRate: number;
 }

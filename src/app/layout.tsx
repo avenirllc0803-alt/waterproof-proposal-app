@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "現場提案書ジェネレーター",
-  description: "防水工事の現場提案書を簡単に作成",
+  title: "現場書類ジェネレーター",
+  description: "防水・塗装工事の提案書・見積書・請求書を簡単作成",
 };
 
 export default function RootLayout({
