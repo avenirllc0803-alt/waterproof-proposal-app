@@ -490,7 +490,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       </div>
 
       {/* キャンバス + テキストオーバーレイ */}
-      <div ref={containerRef} className="flex-1 overflow-auto flex items-start justify-center p-2">
+      <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2">
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`touch-none ${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
