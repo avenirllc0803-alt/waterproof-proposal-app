@@ -11,7 +11,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Tool = "circle" | "arrow" | "text" | "select" | "rectangle";
+type Tool = "circle" | "arrow" | "text" | "rectangle";
 
 const COLOR_PALETTE = [
   { value: "#FF0000", label: "赤" },
@@ -32,7 +32,9 @@ export default function AnnotationCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("circle");
   const [isDrawing, setIsDrawing] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [currentPos, setCurrentPos] = useState<{ x: number; y: number } | null>(null);
   const [localAnnotations, setLocalAnnotations] = useState<Annotation[]>(annotations);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -41,6 +43,16 @@ export default function AnnotationCanvas({
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
 
+  // Shiftキー検知
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(true); };
+    const up = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false); };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
+
+  // 画像読み込み — 画面いっぱいに使う
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -48,17 +60,51 @@ export default function AnnotationCanvas({
       setImage(img);
       const container = containerRef.current;
       if (container) {
-        const maxW = container.clientWidth;
-        const maxH = container.clientHeight - 60;
-        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const maxW = container.clientWidth - 16;
+        const maxH = container.clientHeight - 16;
+        const scale = Math.min(maxW / img.width, maxH / img.height);
         setCanvasSize({
-          width: img.width * scale,
-          height: img.height * scale,
+          width: Math.floor(img.width * scale),
+          height: Math.floor(img.height * scale),
         });
       }
     };
     img.src = imageUrl;
   }, [imageUrl]);
+
+  // 描画関数
+  const drawAnnotation = useCallback((ctx: CanvasRenderingContext2D, ann: Annotation) => {
+    const c = ann.color || "#FF0000";
+    const lw = ann.lineWidth || 3;
+    ctx.strokeStyle = c;
+    ctx.fillStyle = c;
+    ctx.lineWidth = lw;
+
+    if (ann.type === "circle" && ann.radiusX !== undefined && ann.radiusY !== undefined) {
+      ctx.beginPath();
+      ctx.ellipse(ann.x, ann.y, ann.radiusX, ann.radiusY, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (ann.type === "arrow" && ann.endX !== undefined && ann.endY !== undefined) {
+      const headLen = 12 + lw * 2;
+      const angle = Math.atan2(ann.endY - ann.y, ann.endX - ann.x);
+      ctx.beginPath();
+      ctx.moveTo(ann.x, ann.y);
+      ctx.lineTo(ann.endX, ann.endY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ann.endX, ann.endY);
+      ctx.lineTo(ann.endX - headLen * Math.cos(angle - Math.PI / 6), ann.endY - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.moveTo(ann.endX, ann.endY);
+      ctx.lineTo(ann.endX - headLen * Math.cos(angle + Math.PI / 6), ann.endY - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.stroke();
+    } else if (ann.type === "rectangle" && ann.width !== undefined && ann.height !== undefined) {
+      ctx.beginPath();
+      ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
+    } else if (ann.type === "text" && ann.text) {
+      ctx.font = `bold ${16 + (lw - 3) * 2}px sans-serif`;
+      ctx.fillText(ann.text, ann.x, ann.y);
+    }
+  }, []);
 
   const drawAll = useCallback(() => {
     const canvas = canvasRef.current;
@@ -67,48 +113,52 @@ export default function AnnotationCanvas({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    localAnnotations.forEach((ann) => drawAnnotation(ctx, ann));
 
-    localAnnotations.forEach((ann) => {
-      const annColor = ann.color || "#FF0000";
-      const annLineWidth = ann.lineWidth || 3;
-      ctx.strokeStyle = annColor;
-      ctx.fillStyle = annColor;
-      ctx.lineWidth = annLineWidth;
+    // ドラッグ中のプレビュー
+    if (isDrawing && startPos && currentPos) {
+      ctx.setLineDash([6, 3]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
 
-      if (ann.type === "circle" && ann.radiusX) {
-        // 正円: radiusX を半径として使う
-        const r = ann.radiusX;
+      if (tool === "circle") {
+        const cx = (startPos.x + currentPos.x) / 2;
+        const cy = (startPos.y + currentPos.y) / 2;
+        let rx = Math.abs(currentPos.x - startPos.x) / 2;
+        let ry = Math.abs(currentPos.y - startPos.y) / 2;
+        if (shiftHeld) { const r = Math.max(rx, ry); rx = r; ry = r; }
+        if (rx > 2 || ry > 2) {
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (tool === "arrow") {
+        const headLen = 12 + lineWidth * 2;
+        const angle = Math.atan2(currentPos.y - startPos.y, currentPos.x - startPos.x);
         ctx.beginPath();
-        ctx.arc(ann.x, ann.y, r, 0, Math.PI * 2);
+        ctx.moveTo(startPos.x, startPos.y);
+        ctx.lineTo(currentPos.x, currentPos.y);
         ctx.stroke();
-      } else if (ann.type === "arrow" && ann.endX !== undefined && ann.endY !== undefined) {
-        const headLen = 15;
-        const angle = Math.atan2(ann.endY - ann.y, ann.endX - ann.x);
         ctx.beginPath();
-        ctx.moveTo(ann.x, ann.y);
-        ctx.lineTo(ann.endX, ann.endY);
+        ctx.moveTo(currentPos.x, currentPos.y);
+        ctx.lineTo(currentPos.x - headLen * Math.cos(angle - Math.PI / 6), currentPos.y - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(currentPos.x, currentPos.y);
+        ctx.lineTo(currentPos.x - headLen * Math.cos(angle + Math.PI / 6), currentPos.y - headLen * Math.sin(angle + Math.PI / 6));
         ctx.stroke();
+      } else if (tool === "rectangle") {
+        let w = currentPos.x - startPos.x;
+        let h = currentPos.y - startPos.y;
+        if (shiftHeld) {
+          const side = Math.max(Math.abs(w), Math.abs(h));
+          w = Math.sign(w) * side;
+          h = Math.sign(h) * side;
+        }
         ctx.beginPath();
-        ctx.moveTo(ann.endX, ann.endY);
-        ctx.lineTo(
-          ann.endX - headLen * Math.cos(angle - Math.PI / 6),
-          ann.endY - headLen * Math.sin(angle - Math.PI / 6)
-        );
-        ctx.moveTo(ann.endX, ann.endY);
-        ctx.lineTo(
-          ann.endX - headLen * Math.cos(angle + Math.PI / 6),
-          ann.endY - headLen * Math.sin(angle + Math.PI / 6)
-        );
-        ctx.stroke();
-      } else if (ann.type === "rectangle" && ann.width !== undefined && ann.height !== undefined) {
-        ctx.beginPath();
-        ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
-      } else if (ann.type === "text" && ann.text) {
-        ctx.font = "bold 16px sans-serif";
-        ctx.fillText(ann.text, ann.x, ann.y);
+        ctx.strokeRect(startPos.x, startPos.y, w, h);
       }
-    });
-  }, [image, localAnnotations]);
+      ctx.setLineDash([]);
+    }
+  }, [image, localAnnotations, isDrawing, startPos, currentPos, tool, color, lineWidth, shiftHeld, drawAnnotation]);
 
   useEffect(() => {
     drawAll();
@@ -119,27 +169,26 @@ export default function AnnotationCanvas({
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     if ("touches" in e) {
-      // touchEnd では touches が空なので changedTouches を使う
       const touch = e.touches.length > 0 ? e.touches[0] : e.changedTouches[0];
-      return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top,
-      };
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
     }
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (tool === "text") {
-      const pos = getCanvasPos(e);
-      setTextPos(pos);
+      setTextPos(getCanvasPos(e));
       return;
     }
+    const pos = getCanvasPos(e);
     setIsDrawing(true);
-    setStartPos(getCanvasPos(e));
+    setStartPos(pos);
+    setCurrentPos(pos);
+  };
+
+  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    setCurrentPos(getCanvasPos(e));
   };
 
   const handleEnd = (e: React.MouseEvent | React.TouchEvent) => {
@@ -150,16 +199,15 @@ export default function AnnotationCanvas({
     const id = Date.now().toString();
 
     if (tool === "circle") {
-      // 正円モード: ドラッグの長い方の軸に合わせて半径を決定
-      const dx = Math.abs(endPos.x - startPos.x);
-      const dy = Math.abs(endPos.y - startPos.y);
-      const radius = Math.max(dx, dy) / 2;
+      let rx = Math.abs(endPos.x - startPos.x) / 2;
+      let ry = Math.abs(endPos.y - startPos.y) / 2;
+      if (shiftHeld) { const r = Math.max(rx, ry); rx = r; ry = r; }
       const cx = (startPos.x + endPos.x) / 2;
       const cy = (startPos.y + endPos.y) / 2;
-      if (radius > 5) {
+      if (rx > 3 || ry > 3) {
         setLocalAnnotations((prev) => [
           ...prev,
-          { id, type: "circle", x: cx, y: cy, radiusX: radius, radiusY: radius, color, lineWidth },
+          { id, type: "circle", x: cx, y: cy, radiusX: rx, radiusY: ry, color, lineWidth },
         ]);
       }
     } else if (tool === "arrow") {
@@ -171,8 +219,13 @@ export default function AnnotationCanvas({
         ]);
       }
     } else if (tool === "rectangle") {
-      const w = endPos.x - startPos.x;
-      const h = endPos.y - startPos.y;
+      let w = endPos.x - startPos.x;
+      let h = endPos.y - startPos.y;
+      if (shiftHeld) {
+        const side = Math.max(Math.abs(w), Math.abs(h));
+        w = Math.sign(w) * side;
+        h = Math.sign(h) * side;
+      }
       if (Math.abs(w) > 5 || Math.abs(h) > 5) {
         setLocalAnnotations((prev) => [
           ...prev,
@@ -181,6 +234,7 @@ export default function AnnotationCanvas({
       }
     }
     setStartPos(null);
+    setCurrentPos(null);
   };
 
   const handleTextSubmit = () => {
@@ -207,64 +261,52 @@ export default function AnnotationCanvas({
     }
   };
 
-  const tools: { id: Tool; label: string; icon: string }[] = [
+  const tools_list: { id: Tool; label: string; icon: string }[] = [
     { id: "circle", label: "丸", icon: "⭕" },
-    { id: "arrow", label: "矢印", icon: "➡️" },
     { id: "rectangle", label: "四角", icon: "▢" },
+    { id: "arrow", label: "矢印", icon: "➡️" },
     { id: "text", label: "テキスト", icon: "T" },
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex flex-col">
-      {/* ツールバー上段: ツール選択 + アクションボタン */}
-      <div className="flex items-center justify-between p-3 bg-gray-900">
-        <div className="flex gap-2">
-          {tools.map((t) => (
+    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col">
+      {/* ツールバー */}
+      <div className="flex flex-wrap items-center justify-between px-2 sm:px-4 py-2 bg-gray-900 gap-2">
+        <div className="flex gap-1 sm:gap-2 flex-wrap">
+          {tools_list.map((t) => (
             <button
               key={t.id}
               onClick={() => setTool(t.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tool === t.id
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tool === t.id ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
               {t.icon} {t.label}
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleUndo}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600"
-          >
+        <div className="flex gap-1 sm:gap-2">
+          <button onClick={handleUndo} className="px-3 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600">
             ↩ 戻す
           </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
-          >
+          <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
             保存
           </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600"
-          >
-            キャンセル
+          <button onClick={onClose} className="px-3 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600">
+            ✕
           </button>
         </div>
       </div>
 
-      {/* ツールバー下段: 色選択 + 線の太さスライダー */}
-      <div className="flex items-center gap-4 px-3 py-2 bg-gray-800 border-t border-gray-700">
-        {/* カラーパレット */}
-        <div className="flex items-center gap-2">
+      {/* サブツールバー: 色 + 太さ + ヒント */}
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-2 sm:px-4 py-1.5 bg-gray-800">
+        <div className="flex items-center gap-1.5">
           <span className="text-gray-400 text-xs">色:</span>
           {COLOR_PALETTE.map((c) => (
             <button
               key={c.value}
               onClick={() => setColor(c.value)}
-              className={`w-7 h-7 rounded-full border-2 transition-transform ${
+              className={`w-6 h-6 rounded-full border-2 transition-transform ${
                 color === c.value ? "border-white scale-110" : "border-gray-600"
               }`}
               style={{ backgroundColor: c.value }}
@@ -272,24 +314,21 @@ export default function AnnotationCanvas({
             />
           ))}
         </div>
-
-        {/* 線の太さスライダー */}
         <div className="flex items-center gap-2">
           <span className="text-gray-400 text-xs">太さ:</span>
-          <input
-            type="range"
-            min={2}
-            max={8}
-            value={lineWidth}
-            onChange={(e) => setLineWidth(Number(e.target.value))}
-            className="w-24 accent-blue-500"
-          />
-          <span className="text-gray-300 text-xs w-6 text-center">{lineWidth}px</span>
+          <input type="range" min={2} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-20 accent-blue-500" />
+          <span className="text-gray-300 text-xs w-6">{lineWidth}px</span>
         </div>
+        <span className="text-gray-500 text-xs hidden sm:inline">
+          {tool === "circle" ? "ドラッグで楕円 / Shift+ドラッグで正円" :
+           tool === "rectangle" ? "ドラッグで長方形 / Shift+ドラッグで正方形" :
+           tool === "arrow" ? "ドラッグで矢印を描画" :
+           "クリックした場所にテキスト追加"}
+        </span>
       </div>
 
       {textPos && (
-        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-10 bg-white rounded-xl shadow-lg p-3 flex gap-2">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-10 bg-white rounded-xl shadow-lg p-3 flex gap-2">
           <input
             type="text"
             value={textInput}
@@ -299,10 +338,7 @@ export default function AnnotationCanvas({
             autoFocus
             onKeyDown={(e) => e.key === "Enter" && handleTextSubmit()}
           />
-          <button
-            onClick={handleTextSubmit}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
-          >
+          <button onClick={handleTextSubmit} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
             追加
           </button>
         </div>
@@ -310,7 +346,7 @@ export default function AnnotationCanvas({
 
       <div
         ref={containerRef}
-        className="flex-1 flex items-center justify-center overflow-auto p-4"
+        className="flex-1 flex items-center justify-center overflow-auto p-1 sm:p-2"
       >
         {canvasSize.width > 0 && (
           <canvas
@@ -319,8 +355,10 @@ export default function AnnotationCanvas({
             height={canvasSize.height}
             className="cursor-crosshair touch-none"
             onMouseDown={handleStart}
+            onMouseMove={handleMove}
             onMouseUp={handleEnd}
             onTouchStart={handleStart}
+            onTouchMove={handleMove}
             onTouchEnd={handleEnd}
           />
         )}
