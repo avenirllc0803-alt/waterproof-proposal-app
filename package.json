@@ -15,7 +15,6 @@
     "@types/node": "^25.5.0",
     "@types/react": "^18.3.28",
     "autoprefixer": "^10.4.27",
-    "fabric": "^7.2.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "next": "^14.2.35",
