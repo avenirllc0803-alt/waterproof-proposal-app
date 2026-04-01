@@ -236,7 +236,22 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
     const p = pos(e);
-    if (tool === "text" && !editingTextId) { setTextPos(p); return; }
+    if (editingTextId) return; // テキスト編集中は無視
+
+    if (tool === "text") {
+      // テキストツール中でも既存テキストをクリックしたら選択して編集
+      for (let i = anns.length - 1; i >= 0; i--) {
+        if (anns[i].type === "text" && hitTestShape(anns[i], p.x, p.y)) {
+          setSelId(anns[i].id);
+          setEditingTextId(anns[i].id);
+          setTextInput(anns[i].text || "");
+          setTool("select");
+          return;
+        }
+      }
+      setTextPos(p);
+      return;
+    }
 
     if (tool === "select") {
       // ハンドルチェック
@@ -244,7 +259,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         const h = hitHandle(sel, p.x, p.y);
         if (h !== "none") { setHandle(h); setStartPos(p); setCurrentPos(p); return; }
       }
-      // 図形選択
+      // 図形選択（テキスト含む）
       for (let i = anns.length - 1; i >= 0; i--) {
         if (hitTestShape(anns[i], p.x, p.y)) {
           setSelId(anns[i].id); setHandle("move"); setStartPos(p); setCurrentPos(p); return;
@@ -252,11 +267,18 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       }
       setSelId(null); return;
     }
+    // 描画ツール中でも既存図形をクリックしたら選択
+    for (let i = anns.length - 1; i >= 0; i--) {
+      if (hitTestShape(anns[i], p.x, p.y)) {
+        setSelId(anns[i].id); setTool("select"); setHandle("move"); setStartPos(p); setCurrentPos(p); return;
+      }
+    }
     setStartPos(p); setCurrentPos(p); setHandle("none"); setSelId(null);
   };
 
   const handleDblClick = (e: React.MouseEvent) => {
     const p = pos(e);
+    // どのツールでもテキストをダブルクリックすれば編集モードに入る
     for (let i = anns.length - 1; i >= 0; i--) {
       if (anns[i].type === "text" && hitTestShape(anns[i], p.x, p.y)) {
         setEditingTextId(anns[i].id);
@@ -403,7 +425,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           ))}
           <span className="w-px h-5 bg-gray-600 mx-1" />
           {COLORS.map((c) => (
-            <button key={c.v} onClick={() => setColor(c.v)}
+            <button key={c.v} onClick={() => { setColor(c.v); if (selId) updateSel({ color: c.v }); }}
               className={`w-5 h-5 rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
               style={{ backgroundColor: c.v }} title={c.l} />
           ))}
@@ -419,14 +441,22 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
-      {/* テキスト選択時のプロパティ */}
-      {sel?.type === "text" && tool === "select" && !editingTextId && (
+      {/* テキスト選択時のプロパティ（編集中でも表示） */}
+      {sel?.type === "text" && tool === "select" && (
         <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
-          <button onClick={() => { setEditingTextId(selId!); setTextInput(sel.text || ""); }}
-            className="px-2 py-1 bg-blue-600 text-white rounded text-xs">文字を編集</button>
+          {!editingTextId && (
+            <button onClick={() => { setEditingTextId(selId!); setTextInput(sel.text || ""); }}
+              className="px-2 py-1 bg-blue-600 text-white rounded text-xs">文字を編集</button>
+          )}
           <span className="text-gray-400 text-xs">サイズ:</span>
-          <input type="range" min={12} max={36} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-16 accent-blue-500" />
+          <input type="range" min={10} max={40} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-16 accent-blue-500" />
           <span className="text-gray-300 text-xs">{sel.fontSize || 18}px</span>
+          <span className="text-gray-400 text-xs">色:</span>
+          {COLORS.map((c) => (
+            <button key={c.v} onClick={() => { setColor(c.v); updateSel({ color: c.v }); }}
+              className={`w-4 h-4 rounded-full border ${(sel.color || "#FF0000") === c.v ? "border-white" : "border-gray-600"}`}
+              style={{ backgroundColor: c.v }} />
+          ))}
           <button onClick={() => updateSel({ boxed: !sel.boxed })}
             className={`px-2 py-1 rounded text-xs ${sel.boxed ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-400"}`}>
             枠{sel.boxed ? "ON" : "OFF"}
@@ -438,6 +468,21 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
               {bg.l}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* 丸・四角選択時のプロパティ */}
+      {sel && (sel.type === "circle" || sel.type === "rectangle") && tool === "select" && (
+        <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
+          <span className="text-gray-400 text-xs">色:</span>
+          {COLORS.map((c) => (
+            <button key={c.v} onClick={() => { setColor(c.v); updateSel({ color: c.v }); }}
+              className={`w-4 h-4 rounded-full border ${(sel.color || "#FF0000") === c.v ? "border-white" : "border-gray-600"}`}
+              style={{ backgroundColor: c.v }} />
+          ))}
+          <span className="text-gray-400 text-xs">太さ:</span>
+          <input type="range" min={1} max={8} value={sel.lineWidth || 3} onChange={(e) => { setLineWidth(Number(e.target.value)); updateSel({ lineWidth: Number(e.target.value) }); }} className="w-14 accent-blue-500" />
+          <span className="text-gray-300 text-xs">{sel.lineWidth || 3}px</span>
         </div>
       )}
 
