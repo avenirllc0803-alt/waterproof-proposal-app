@@ -130,7 +130,7 @@ export default function EditPage() {
     <div className="min-h-screen pb-24">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3">
+        <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.push("/")}
@@ -148,7 +148,7 @@ export default function EditPage() {
       </div>
 
       {/* Sections */}
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-4">
         {sections.length === 0 && (
           <div className="text-center py-16 text-gray-400">
             <svg
@@ -192,7 +192,7 @@ export default function EditPage() {
       {/* Bottom bar */}
       {sections.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto">
             <button
               onClick={goToPreview}
               className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-blue-700 transition-colors"

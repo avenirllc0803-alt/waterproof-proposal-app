@@ -83,7 +83,7 @@ export default function PreviewPage() {
     <div className="min-h-screen bg-gray-100 pb-24">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => router.push("/edit")}
             className="text-gray-500 hover:text-gray-700"
@@ -102,7 +102,7 @@ export default function PreviewPage() {
       </div>
 
       {/* Preview content */}
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto p-4">
         <div
           ref={previewRef}
           className="bg-white shadow-lg"
