@@ -4,66 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, ProposalSection } from "@/types";
 import { dummySections } from "@/data/templates";
+import { createDemoImage } from "@/lib/demoImages";
 import SectionEditor from "@/components/SectionEditor";
-
-function createDummyImageUrl(label: string): string {
-  const canvas = document.createElement("canvas");
-  canvas.width = 640;
-  canvas.height = 480;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#e2e8f0";
-  ctx.fillRect(0, 0, 640, 480);
-  ctx.strokeStyle = "#cbd5e1";
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 640; i += 40) {
-    ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i, 480);
-    ctx.stroke();
-  }
-  for (let i = 0; i < 480; i += 40) {
-    ctx.beginPath();
-    ctx.moveTo(0, i);
-    ctx.lineTo(640, i);
-    ctx.stroke();
-  }
-  ctx.fillStyle = "#94a3b8";
-  ctx.beginPath();
-  ctx.arc(320, 200, 60, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#e2e8f0";
-  ctx.beginPath();
-  ctx.arc(320, 185, 20, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(320, 230, 35, 25, 0, 0, Math.PI);
-  ctx.fill();
-  ctx.fillStyle = "#475569";
-  ctx.font = "bold 20px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(label, 320, 310);
-  ctx.font = "14px sans-serif";
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillText("※ ダミー画像（実際は現場写真を使用）", 320, 340);
-  ctx.strokeStyle = "#FF0000";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(200, 180, 80, 50, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(300, 140);
-  ctx.lineTo(230, 170);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(230, 170);
-  ctx.lineTo(245, 155);
-  ctx.stroke();
-  ctx.moveTo(230, 170);
-  ctx.lineTo(243, 178);
-  ctx.stroke();
-
-  return canvas.toDataURL("image/png");
-}
 
 export default function EditPage() {
   const router = useRouter();
@@ -82,7 +24,7 @@ export default function EditPage() {
     if (useDemo === "true") {
       const demoData: ProposalSection[] = dummySections.map((ds, i) => ({
         id: `demo-${i}`,
-        imageUrl: createDummyImageUrl(ds.imageName),
+        imageUrl: createDemoImage(i),
         imageName: ds.imageName,
         annotations: [],
         description: ds.description,
