@@ -195,6 +195,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
   const [fontSize] = useState(18);
+  const [newTextPos, setNewTextPos] = useState<{ x: number; y: number } | null>(null);
+  const [newTextValue, setNewTextValue] = useState("");
   const [zoom, setZoom] = useState(100);
   const baseScale = useRef(1);
 
@@ -382,14 +384,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
     const p = getPos(e);
     if (tool === "text") {
-      // 画面タップでpromptダイアログを表示して入力
-      const text = window.prompt("テキストを入力してください");
-      if (text && text.trim()) {
-        const id = Date.now().toString();
-        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: text.trim(), color, fontSize, boxed: false }]);
-        setSelId(id);
-        setTool("select");
-      }
+      // タップ位置にインライン入力欄を表示
+      setNewTextPos(p);
+      setNewTextValue("");
       return;
     }
     if (tool === "select") {
@@ -654,12 +651,47 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
-      {/* テキストモード時のガイド表示 */}
-      {tool === "text" && !imageMode && (
-        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center" style={{ touchAction: "manipulation" }}>
-          <span className="text-yellow-200 text-sm font-bold">画面をタップして文字を配置</span>
-        </div>
-      )}
+      {/* テキストモード: インライン入力欄（タップ位置に直接表示） */}
+      {newTextPos && tool === "text" && !imageMode && (() => {
+        const commitText = () => {
+          if (newTextValue.trim()) {
+            const id = Date.now().toString();
+            setAnns((prev) => [...prev, { id, type: "text", x: newTextPos.x, y: newTextPos.y, text: newTextValue.trim(), color, fontSize, boxed: false }]);
+            setSelId(id);
+          }
+          setNewTextPos(null);
+          setNewTextValue("");
+          setTool("select");
+        };
+        return (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 }}
+            onPointerDown={commitText}>
+            <div style={{ position: "absolute", left: `calc(50% - 140px)`, top: "40%", width: 280, background: "#1a1a2e", border: "2px solid #0088ff", borderRadius: 12, padding: 16, zIndex: 61 }}
+              onPointerDown={(e) => e.stopPropagation()}>
+              <div style={{ color: "#ccc", fontSize: 13, marginBottom: 8, textAlign: "center" }}>テキストを入力</div>
+              <input
+                type="text"
+                value={newTextValue}
+                onChange={(e) => setNewTextValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") commitText(); }}
+                autoFocus
+                autoComplete="off"
+                style={{ width: "100%", padding: "10px 12px", fontSize: 18, fontWeight: "bold", color, background: "white", border: "2px solid #555", borderRadius: 8, outline: "none", boxSizing: "border-box" }}
+              />
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button onPointerDown={(e) => { e.stopPropagation(); commitText(); }}
+                  style={{ flex: 1, padding: "10px 0", background: "#0088ff", color: "white", border: "none", borderRadius: 8, fontSize: 16, fontWeight: "bold", touchAction: "manipulation" }}>
+                  OK
+                </button>
+                <button onPointerDown={(e) => { e.stopPropagation(); setNewTextPos(null); setNewTextValue(""); }}
+                  style={{ flex: 1, padding: "10px 0", background: "#555", color: "white", border: "none", borderRadius: 8, fontSize: 16, fontWeight: "bold", touchAction: "manipulation" }}>
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
