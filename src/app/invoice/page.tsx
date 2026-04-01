@@ -296,10 +296,9 @@ export default function InvoicePage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
-        <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 flex gap-3">
-          <button onClick={saveToPC} className="flex-shrink-0 px-5 py-4 bg-gray-100 text-gray-700 rounded-xl text-base font-bold hover:bg-gray-200">PCに保存</button>
+        <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16">
           <button onClick={generatePdf} disabled={generating}
-            className="flex-1 bg-orange-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-lg">
+            className="w-full bg-orange-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-lg">
             {generating ? "PDF生成中..." : "PDFをダウンロード"}
           </button>
         </div>

@@ -378,11 +378,8 @@ export default function EstimatePage() {
         {/* 下部バー */}
         {items.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
-            <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-12 xl:px-16 flex gap-3">
-              <button onClick={saveToPC} className="flex-shrink-0 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl text-base font-bold hover:bg-gray-200 transition-colors">
-                PCに保存
-              </button>
-              <button onClick={() => setStep("preview")} className="flex-1 bg-green-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-green-700 transition-colors shadow-lg">
+            <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-12 xl:px-16">
+              <button onClick={() => setStep("preview")} className="w-full bg-green-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-green-700 transition-colors shadow-lg">
                 プレビュー →
               </button>
             </div>
@@ -493,9 +490,6 @@ export default function EstimatePage() {
       {/* 下部バー */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
         <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto px-4 lg:px-12 xl:px-16 flex gap-3">
-          <button onClick={saveToPC} className="flex-shrink-0 px-5 py-4 bg-gray-100 text-gray-700 rounded-xl text-base font-bold hover:bg-gray-200">
-            PCに保存
-          </button>
           <button onClick={createInvoice} className="flex-shrink-0 px-5 py-4 bg-orange-600 text-white rounded-xl text-base font-bold hover:bg-orange-700">
             請求書を作成
           </button>

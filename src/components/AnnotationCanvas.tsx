@@ -39,7 +39,11 @@ function getBBox(a: Annotation): { x1: number; y1: number; x2: number; y2: numbe
   if (a.type === "arrow") {
     return { x1: Math.min(a.x, a.endX || a.x), y1: Math.min(a.y, a.endY || a.y), x2: Math.max(a.x, a.endX || a.x), y2: Math.max(a.y, a.endY || a.y) };
   }
-  return { x1: a.x - 5, y1: a.y - 25, x2: a.x + 150, y2: a.y + 5 };
+  // テキスト: フォントサイズと文字数から概算
+  const fs = a.fontSize || 18;
+  const textLen = (a.text || "").length;
+  const estWidth = Math.max(textLen * fs * 0.65, 30);
+  return { x1: a.x - 8, y1: a.y - fs - 8, x2: a.x + estWidth + 8, y2: a.y + 8 };
 }
 
 function hitTestShape(a: Annotation, x: number, y: number): boolean {
@@ -64,6 +68,7 @@ function hitTestShape(a: Annotation, x: number, y: number): boolean {
 
 // 8方向ハンドルの位置
 function getHandles(a: Annotation): { type: HandleType; x: number; y: number }[] {
+  if (a.type === "text") return []; // テキストは移動のみ（ハンドルなし）
   if (a.type === "arrow") {
     return [
       { type: "start", x: a.x, y: a.y },
@@ -104,8 +109,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
-  const [textBoxed, setTextBoxed] = useState(true);
-  const [textBgColor, setTextBgColor] = useState("rgba(255,255,255,0.85)");
+  const [textBoxed, setTextBoxed] = useState(false);
+  const [textBgColor, setTextBgColor] = useState("");
   const [fontSize, setFontSize] = useState(18);
 
   const sel = anns.find((a) => a.id === selId);
@@ -353,7 +358,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       setEditingTextId(null);
     } else if (textPos) {
       const id = Date.now().toString();
-      setAnns((p) => [...p, { id, type: "text", x: textPos.x, y: textPos.y, text: textInput, color, lineWidth, fontSize, boxed: textBoxed, bgColor: textBoxed ? textBgColor : undefined }]);
+      setAnns((p) => [...p, { id, type: "text", x: textPos.x, y: textPos.y, text: textInput, color, lineWidth, fontSize, boxed: textBoxed, bgColor: textBgColor || undefined }]);
       setSelId(id); setTool("select");
     }
     setTextInput(""); setTextPos(null);
