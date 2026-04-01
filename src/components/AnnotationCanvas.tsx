@@ -184,6 +184,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("select");
   const [imageMode, setImageMode] = useState(false); // true=画像操作モード
+  const imageModeRef = useRef(false);
   const [handle, setHandle] = useState<HandleType>("none");
   const [shiftHeld, setShiftHeld] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
@@ -199,29 +200,28 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [zoom, setZoom] = useState(100);
   const baseScale = useRef(1);
 
+  // imageModeをrefに同期（イベントハンドラ内で最新値を参照するため）
+  useEffect(() => { imageModeRef.current = imageMode; }, [imageMode]);
+
   const sel = anns.find((a) => a.id === selId);
   const textAnns = anns.filter((a) => a.type === "text");
   const shapeAnns = anns.filter((a) => a.type !== "text");
 
-  // 注釈画面全体でページスクロール・バウンスを完全に防止（iPad/iPhone対応）
-  // CSSのみで制御し、JSのtouchmoveリスナーは使わない（ボタンのタッチ操作を阻害するため）
+  // 注釈画面全体でページスクロール・バウンスを防止（iPad/iPhone対応）
+  // position:fixedは使わない（ページレイアウトを破壊するため）
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    const prev = { htmlOv: html.style.overflow, bodyOv: body.style.overflow, htmlOsb: html.style.overscrollBehavior, bodyOsb: body.style.overscrollBehavior, htmlPos: html.style.position, bodyPos: body.style.position };
+    const prev = { htmlOv: html.style.overflow, bodyOv: body.style.overflow, htmlOsb: html.style.overscrollBehavior, bodyOsb: body.style.overscrollBehavior };
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
     html.style.overscrollBehavior = "none";
     body.style.overscrollBehavior = "none";
-    html.style.position = "fixed";
-    body.style.position = "fixed";
     return () => {
       html.style.overflow = prev.htmlOv;
       body.style.overflow = prev.bodyOv;
       html.style.overscrollBehavior = prev.htmlOsb;
       body.style.overscrollBehavior = prev.bodyOsb;
-      html.style.position = prev.htmlPos;
-      body.style.position = prev.bodyPos;
     };
   }, []);
 
@@ -245,7 +245,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     const container = containerRef.current;
     if (!container) return;
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 2 && imageModeRef.current) {
         e.preventDefault();
         pinchRef.current.lastDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -255,7 +255,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       }
     };
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && pinchRef.current.active) {
+      if (e.touches.length === 2 && pinchRef.current.active && imageModeRef.current) {
         e.preventDefault();
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -538,25 +538,33 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     { id: "rectangle", label: "▢ 四角" }, { id: "arrow", label: "➡ 矢印" }, { id: "text", label: "T 文字" },
   ];
 
+  // ボタン用ハンドラ: onPointerDownで即座に反応（Apple Pencil・タッチ・マウス全対応）
+  // onClickはキーボード操作のフォールバック。ポインター経由のclickは無視して二重発火を防止。
+  const lastPtrDown = useRef(0);
+  const btn = (handler: () => void) => ({
+    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); lastPtrDown.current = Date.now(); handler(); },
+    onClick: () => { if (Date.now() - lastPtrDown.current > 300) handler(); },
+  });
+
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ touchAction: "none", overscrollBehavior: "none" }}>
-      {/* ツールバー */}
-      <div className="flex flex-wrap items-center justify-between px-1.5 py-1 bg-gray-900 gap-1">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ overscrollBehavior: "none" }}>
+      {/* ツールバー（touchAction:autoでボタンタップを確実に動作させる） */}
+      <div className="flex flex-wrap items-center justify-between px-1.5 py-1 bg-gray-900 gap-1" style={{ touchAction: "auto" }}>
         <div className="flex gap-0.5 flex-wrap items-center">
-          <button onClick={() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); }}
+          <button {...btn(() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); })}
             className={`px-2 py-1.5 rounded text-xs font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
             {imageMode ? "🔍 画像操作中" : "🔍 画像操作"}
           </button>
           <span className="w-px h-5 bg-gray-600 mx-1" />
           {!imageMode && allTools.map((t) => (
-            <button key={t.id} onClick={() => { setTool(t.id); if (t.id !== "select") setSelId(null); }}
+            <button key={t.id} {...btn(() => { setTool(t.id); if (t.id !== "select") setSelId(null); })}
               className={`px-2 py-1.5 rounded text-xs font-medium ${tool === t.id && !imageMode ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
               {t.label}
             </button>
           ))}
           {!imageMode && <span className="w-px h-5 bg-gray-600 mx-1" />}
           {COLORS.map((c) => (
-            <button key={c.v} onClick={() => { setColor(c.v); if (selId) updateSel({ color: c.v }); }}
+            <button key={c.v} {...btn(() => { setColor(c.v); if (selId) updateSel({ color: c.v }); })}
               className={`w-5 h-5 rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
               style={{ backgroundColor: c.v }} title={c.l} />
           ))}
@@ -566,10 +574,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           <span className="text-green-400 text-xs">{zoom}%</span>
         </div>
         <div className="flex gap-1">
-          {selId && <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }} className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">削除</button>}
-          <button onClick={() => { setAnns((p) => p.slice(0, -1)); setSelId(null); }} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">↩</button>
-          <button onClick={handleSave} className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">保存</button>
-          <button onClick={onClose} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">✕</button>
+          {selId && <button {...btn(() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); })} className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">削除</button>}
+          <button {...btn(() => { setAnns((p) => p.slice(0, -1)); setSelId(null); })} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">↩</button>
+          <button {...btn(handleSave)} className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">保存</button>
+          <button {...btn(onClose)} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">✕</button>
         </div>
       </div>
 
@@ -606,11 +614,11 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       {/* キャンバス + テキストオーバーレイ */}
       <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2"
-        style={{ touchAction: imageMode ? "auto" : "none" }}>
+        style={{ touchAction: "none" }}>
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
-            style={{ position: "absolute", top: 0, left: 0, touchAction: imageMode ? "auto" : "none" }}
+            style={{ position: "absolute", top: 0, left: 0, touchAction: "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
             onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
@@ -638,7 +646,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       {/* テキスト入力欄（画面下部固定） */}
       {tool === "text" && !imageMode && (
-        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700">
+        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700" style={{ touchAction: "auto" }}>
           <span className="text-yellow-200 text-sm font-bold flex-shrink-0">文字:</span>
           <input
             type="text" value={pendingText} onChange={(e) => setPendingText(e.target.value)}
