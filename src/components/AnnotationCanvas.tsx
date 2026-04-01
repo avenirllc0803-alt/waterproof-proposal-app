@@ -204,24 +204,26 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const shapeAnns = anns.filter((a) => a.type !== "text");
 
   // 注釈画面全体でページスクロール・バウンスを完全に防止（iPad/iPhone対応）
+  // CSSのみで制御し、JSのtouchmoveリスナーは使わない（ボタンのタッチ操作を阻害するため）
   useEffect(() => {
-    const preventScroll = (e: TouchEvent) => {
-      // 画像操作モード中のcontainer内ピンチは許可
-      if (imageMode && containerRef.current?.contains(e.target as Node) && e.touches.length === 2) return;
-      const el = e.target as HTMLElement;
-      // ボタン・入力欄などUI要素は通常操作許可
-      if (el?.tagName === "INPUT" || el?.tagName === "BUTTON" || el?.tagName === "SELECT" || el?.tagName === "TEXTAREA" || el?.closest?.("button")) return;
-      // キャンバス内のタッチ操作（図形描画・移動等）は許可
-      if (wrapperRef.current?.contains(e.target as Node)) return;
-      e.preventDefault();
-    };
-    document.body.style.overflow = "hidden";
-    document.addEventListener("touchmove", preventScroll, { passive: false });
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = { htmlOv: html.style.overflow, bodyOv: body.style.overflow, htmlOsb: html.style.overscrollBehavior, bodyOsb: body.style.overscrollBehavior, htmlPos: html.style.position, bodyPos: body.style.position };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    html.style.position = "fixed";
+    body.style.position = "fixed";
     return () => {
-      document.body.style.overflow = "";
-      document.removeEventListener("touchmove", preventScroll);
+      html.style.overflow = prev.htmlOv;
+      body.style.overflow = prev.bodyOv;
+      html.style.overscrollBehavior = prev.htmlOsb;
+      body.style.overscrollBehavior = prev.bodyOsb;
+      html.style.position = prev.htmlPos;
+      body.style.position = prev.bodyPos;
     };
-  }, [imageMode]);
+  }, []);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
