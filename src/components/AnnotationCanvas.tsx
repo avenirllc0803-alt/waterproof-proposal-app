@@ -93,27 +93,33 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
     if (text.trim()) onUpdate({ text });
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     if (editing) return;
     onSelect();
-    dragStart.current = { x: e.clientX, y: e.clientY, annX: ann.x, annY: ann.y };
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    dragStart.current = { x: clientX, y: clientY, annX: ann.x, annY: ann.y };
     setDragging(true);
 
-    const handleMouseMove = (ev: MouseEvent) => {
+    const handleMove = (ev: MouseEvent | TouchEvent) => {
       if (!dragStart.current) return;
-      const dx = ev.clientX - dragStart.current.x;
-      const dy = ev.clientY - dragStart.current.y;
-      onUpdate({ x: dragStart.current.annX + dx, y: dragStart.current.annY + dy });
+      const cx = "touches" in ev ? ev.touches[0].clientX : (ev as MouseEvent).clientX;
+      const cy = "touches" in ev ? ev.touches[0].clientY : (ev as MouseEvent).clientY;
+      onUpdate({ x: dragStart.current.annX + cx - dragStart.current.x, y: dragStart.current.annY + cy - dragStart.current.y });
     };
-    const handleMouseUp = () => {
+    const handleUp = () => {
       setDragging(false);
       dragStart.current = null;
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleUp);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchmove", handleMove);
+    window.addEventListener("touchend", handleUp);
   };
 
   // 枠線: boxedの時だけ表示。選択時は青枠。両方同時にはしない。
@@ -131,7 +137,8 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
         padding: 4, borderRadius: 3, zIndex: editing ? 20 : 10,
       }}
       onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
-      onMouseDown={handleMouseDown}
+      onMouseDown={handlePointerDown}
+      onTouchStart={handlePointerDown}
     >
       {editing ? (
         <input
@@ -276,13 +283,18 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
   useEffect(() => { drawAll(); }, [drawAll]);
 
-  const getPos = (e: React.MouseEvent) => {
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
     const c = canvasRef.current; if (!c) return { x: 0, y: 0 };
     const r = c.getBoundingClientRect();
+    if ("touches" in e) {
+      const t = e.touches.length > 0 ? e.touches[0] : e.changedTouches[0];
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    }
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
-  const handleCanvasDown = (e: React.MouseEvent) => {
+  const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if ("touches" in e) e.preventDefault();
     const p = getPos(e);
     if (tool === "text") {
       // テキスト追加
@@ -312,7 +324,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     setStartPos(p); setCurrentPos(p); setHandle("none"); setSelId(null);
   };
 
-  const handleCanvasMove = (e: React.MouseEvent) => {
+  const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if ("touches" in e) e.preventDefault();
     const p = getPos(e);
     setCurrentPos(p);
     if (!startPos) return;
@@ -349,7 +362,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
   };
 
-  const handleCanvasUp = (e: React.MouseEvent) => {
+  const handleCanvasUp = (e: React.MouseEvent | React.TouchEvent) => {
     if (handle !== "none") { setHandle("none"); setStartPos(null); setCurrentPos(null); return; }
     if (!startPos || !currentPos) { setStartPos(null); setCurrentPos(null); return; }
     const ep = getPos(e);
@@ -495,7 +508,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`touch-none ${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
             style={{ position: "absolute", top: 0, left: 0 }}
-            onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp} />
+            onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
+            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
           {textAnns.map((a) => (
             <TextOverlay key={a.id} ann={a} isSelected={a.id === selId}
