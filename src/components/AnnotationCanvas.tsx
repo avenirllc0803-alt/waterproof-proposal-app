@@ -394,11 +394,14 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     if (!textInput.trim()) return;
     if (editingTextId) {
       setAnns((p) => p.map((a) => a.id === editingTextId ? { ...a, text: textInput } : a));
+      setSelId(editingTextId);
       setEditingTextId(null);
+      setTool("select");
     } else if (textPos) {
       const id = Date.now().toString();
       setAnns((p) => [...p, { id, type: "text", x: textPos.x, y: textPos.y, text: textInput, color, lineWidth, fontSize, boxed: textBoxed, bgColor: textBgColor || undefined }]);
-      setSelId(id); setTool("select");
+      setSelId(id);
+      setTool("select");
     }
     setTextInput(""); setTextPos(null);
   };
