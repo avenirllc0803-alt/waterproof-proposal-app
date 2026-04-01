@@ -83,21 +83,50 @@ export default function PreviewPage() {
     <div className="min-h-screen bg-gray-100 pb-24">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => router.push("/edit")}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            ← 編集に戻る
-          </button>
-          <h1 className="font-bold text-gray-800">プレビュー</h1>
-          <button
-            onClick={generatePdf}
-            disabled={generating}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            {generating ? "生成中..." : "PDF出力"}
-          </button>
+        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => router.push("/edit")}
+              className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 -ml-3 rounded-lg hover:bg-gray-100"
+            >
+              ← 編集に戻る
+            </button>
+            <h1 className="font-bold text-gray-800 text-lg">プレビュー</h1>
+            <button
+              onClick={generatePdf}
+              disabled={generating}
+              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow"
+            >
+              {generating ? "生成中..." : "PDF出力"}
+            </button>
+          </div>
+
+          {/* ステップ表示 */}
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center w-7 h-7 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>
+              <span className="text-xs text-green-600 hidden sm:inline">基本情報</span>
+            </div>
+            <div className="w-6 h-0.5 bg-green-400" />
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center w-7 h-7 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>
+              <span className="text-xs text-green-600 hidden sm:inline">写真・説明</span>
+            </div>
+            <div className="w-6 h-0.5 bg-green-400" />
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center w-7 h-7 bg-blue-600 text-white text-xs font-bold rounded-full">3</span>
+              <span className="text-xs font-bold text-blue-600 hidden sm:inline">確認・出力</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ガイドメッセージ */}
+      <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 pt-4">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <p className="text-green-700 text-sm sm:text-base text-center">
+            内容を確認して、問題なければ「PDF出力」ボタンでダウンロードできます。
+          </p>
         </div>
       </div>
 
@@ -189,11 +218,11 @@ export default function PreviewPage() {
       </div>
 
       {/* Bottom bar (mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 sm:hidden">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 sm:hidden">
         <button
           onClick={generatePdf}
           disabled={generating}
-          className="w-full bg-green-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          className="w-full bg-green-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow-lg"
         >
           {generating ? "PDF生成中..." : "PDFをダウンロード"}
         </button>

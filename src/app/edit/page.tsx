@@ -11,10 +11,8 @@ function createDummyImageUrl(label: string): string {
   canvas.width = 640;
   canvas.height = 480;
   const ctx = canvas.getContext("2d")!;
-  // background
   ctx.fillStyle = "#e2e8f0";
   ctx.fillRect(0, 0, 640, 480);
-  // grid
   ctx.strokeStyle = "#cbd5e1";
   ctx.lineWidth = 1;
   for (let i = 0; i < 640; i += 40) {
@@ -29,7 +27,6 @@ function createDummyImageUrl(label: string): string {
     ctx.lineTo(640, i);
     ctx.stroke();
   }
-  // icon
   ctx.fillStyle = "#94a3b8";
   ctx.beginPath();
   ctx.arc(320, 200, 60, 0, Math.PI * 2);
@@ -41,7 +38,6 @@ function createDummyImageUrl(label: string): string {
   ctx.beginPath();
   ctx.ellipse(320, 230, 35, 25, 0, 0, Math.PI);
   ctx.fill();
-  // label
   ctx.fillStyle = "#475569";
   ctx.font = "bold 20px sans-serif";
   ctx.textAlign = "center";
@@ -49,13 +45,11 @@ function createDummyImageUrl(label: string): string {
   ctx.font = "14px sans-serif";
   ctx.fillStyle = "#94a3b8";
   ctx.fillText("※ ダミー画像（実際は現場写真を使用）", 320, 340);
-  // red annotation circle (demo)
   ctx.strokeStyle = "#FF0000";
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.ellipse(200, 180, 80, 50, 0, 0, Math.PI * 2);
   ctx.stroke();
-  // red arrow
   ctx.beginPath();
   ctx.moveTo(300, 140);
   ctx.lineTo(230, 170);
@@ -119,6 +113,16 @@ export default function EditPage() {
     setSections((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const moveSection = (index: number, direction: "up" | "down") => {
+    setSections((prev) => {
+      const arr = [...prev];
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= arr.length) return arr;
+      [arr[index], arr[target]] = [arr[target], arr[index]];
+      return arr;
+    });
+  };
+
   const goToPreview = () => {
     sessionStorage.setItem("sections", JSON.stringify(sections));
     router.push("/preview");
@@ -127,32 +131,62 @@ export default function EditPage() {
   if (!customerInfo) return null;
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-28">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.push("/")}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 -ml-3 rounded-lg hover:bg-gray-100"
             >
               ← 戻る
             </button>
-            <h1 className="font-bold text-gray-800">提案書を編集</h1>
-            <div className="w-12" />
+            <h1 className="font-bold text-gray-800 text-lg">提案書を編集</h1>
+            <div className="w-16" />
           </div>
-          <div className="mt-2 text-sm text-gray-500">
+
+          {/* ステップ表示 */}
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center w-7 h-7 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>
+              <span className="text-xs text-green-600 hidden sm:inline">基本情報</span>
+            </div>
+            <div className="w-6 h-0.5 bg-green-400" />
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center w-7 h-7 bg-blue-600 text-white text-xs font-bold rounded-full">2</span>
+              <span className="text-xs font-bold text-blue-600 hidden sm:inline">写真・説明</span>
+            </div>
+            <div className="w-6 h-0.5 bg-gray-300" />
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-400 text-xs font-bold rounded-full">3</span>
+              <span className="text-xs text-gray-400 hidden sm:inline">確認・出力</span>
+            </div>
+          </div>
+
+          <div className="mt-2 text-sm text-gray-500 text-center">
             {customerInfo.propertyName} / {customerInfo.customerName}
           </div>
         </div>
       </div>
 
+      {/* ガイドメッセージ */}
+      <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 pt-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <p className="text-blue-700 text-sm sm:text-base text-center">
+            {sections.length === 0
+              ? "「セクションを追加」ボタンを押して、現場写真と説明を追加してください。"
+              : `${sections.length}件のセクションがあります。写真を追加して、説明文を入力またはテンプレートから選んでください。`}
+          </p>
+        </div>
+      </div>
+
       {/* Sections */}
-      <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-4">
+      <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-4 space-y-4">
         {sections.length === 0 && (
-          <div className="text-center py-16 text-gray-400">
+          <div className="text-center py-12 text-gray-400">
             <svg
-              className="w-16 h-16 mx-auto mb-4 text-gray-300"
+              className="w-20 h-20 mx-auto mb-4 text-gray-300"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -164,9 +198,9 @@ export default function EditPage() {
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            <p className="text-lg mb-2">まだセクションがありません</p>
-            <p className="text-sm">
-              下の「セクションを追加」から写真と説明を追加してください
+            <p className="text-xl mb-2 text-gray-500">まだセクションがありません</p>
+            <p className="text-base text-gray-400">
+              下のボタンから写真と説明を追加してください
             </p>
           </div>
         )}
@@ -176,14 +210,17 @@ export default function EditPage() {
             key={section.id}
             section={section}
             index={i}
+            total={sections.length}
             onUpdate={(updated) => updateSection(i, updated)}
             onDelete={() => deleteSection(i)}
+            onMove={(dir) => moveSection(i, dir)}
           />
         ))}
 
         <button
           onClick={addSection}
-          className="w-full py-4 border-2 border-dashed border-gray-300 rounded-2xl text-gray-500 hover:border-blue-500 hover:text-blue-600 transition-colors font-medium"
+          className="w-full py-5 border-3 border-dashed border-gray-300 rounded-2xl text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-colors font-bold text-lg"
+          style={{ borderWidth: "3px" }}
         >
           + セクションを追加
         </button>
@@ -191,13 +228,13 @@ export default function EditPage() {
 
       {/* Bottom bar */}
       {sections.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto">
             <button
               onClick={goToPreview}
-              className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-blue-700 transition-colors"
+              className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 transition-colors shadow-lg"
             >
-              プレビューを確認 →
+              次へ：プレビューを確認 →
             </button>
           </div>
         </div>
