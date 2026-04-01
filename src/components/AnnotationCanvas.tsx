@@ -76,9 +76,9 @@ function hitHandle(a: Annotation, x: number, y: number): HandleType {
 }
 
 // テキスト注釈のHTMLオーバーレイコンポーネント
-function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
-  ann: Annotation; isSelected: boolean;
-  onSelect: () => void; onUpdate: (patch: Partial<Annotation>) => void;
+function TextOverlay({ ann, isSelected, onSelect, onUpdate, onDelete, locked }: {
+  ann: Annotation; isSelected: boolean; locked: boolean;
+  onSelect: () => void; onUpdate: (patch: Partial<Annotation>) => void; onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(ann.text || "");
@@ -96,7 +96,7 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
 
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    if (editing) return;
+    if (editing || locked) return;
 
     // ダブルタップ検知（スマホ用）
     const now = Date.now();
@@ -150,6 +150,14 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
     >
+      {isSelected && !editing && !locked && (
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          style={{ position: "absolute", top: -12, right: -12, width: 24, height: 24, borderRadius: 12,
+            background: "#ff3333", color: "white", border: "none", fontSize: 14, fontWeight: "bold",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 30 }}>
+          ×
+        </button>
+      )}
       {editing ? (
         <input
           type="text" value={text} onChange={(e) => setText(e.target.value)}
@@ -567,24 +575,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       )}
 
-      {/* テキスト入力欄（文字ツール選択時に表示） */}
-      {tool === "text" && (
-        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700">
-          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">文字:</span>
-          <input
-            type="text" value={pendingText} onChange={(e) => setPendingText(e.target.value)}
-            placeholder="ここに入力してから画面をタップ"
-            className="flex-1 px-3 py-2 rounded-lg text-base border-2 border-yellow-400 bg-white"
-            autoFocus
-          />
-          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">サイズ:</span>
-          <input type="range" min={10} max={60} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-20 accent-yellow-400" />
-          <span className="text-yellow-200 text-sm font-bold">{fontSize}px</span>
-        </div>
-      )}
-      {tool !== "text" && (
+      {tool !== "text" && !imageMode && (
         <div className="px-2 py-0.5 bg-gray-800 text-gray-500 text-xs text-center hidden sm:block">
-          {tool === "select" ? "図形をクリックで選択・移動。テキストはダブルクリックで編集。" :
+          {tool === "select" ? "図形をタップで選択・移動。テキストはダブルタップで編集。削除は×ボタン。" :
            "ドラッグで図形を描く。Shiftで正円/正方形。"}
         </div>
       )}
@@ -599,12 +592,38 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
             onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
           {textAnns.map((a) => (
-            <TextOverlay key={a.id} ann={a} isSelected={a.id === selId}
-              onSelect={() => { setSelId(a.id); setTool("select"); }}
-              onUpdate={(patch) => setAnns((p) => p.map((x) => x.id === a.id ? { ...x, ...patch } : x))} />
+            <TextOverlay key={a.id} ann={a} isSelected={a.id === selId} locked={imageMode}
+              onSelect={() => { if (!imageMode) { setSelId(a.id); setTool("select"); } }}
+              onUpdate={(patch) => setAnns((p) => p.map((x) => x.id === a.id ? { ...x, ...patch } : x))}
+              onDelete={() => { setAnns((p) => p.filter((x) => x.id !== a.id)); setSelId(null); }} />
           ))}
         </div>
       </div>
+
+      {/* テキスト入力欄（画面下部固定） */}
+      {tool === "text" && !imageMode && (
+        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700">
+          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">文字:</span>
+          <input
+            type="text" value={pendingText} onChange={(e) => setPendingText(e.target.value)}
+            placeholder="入力してから画面をタップで配置"
+            className="flex-1 px-3 py-2 rounded-lg text-base border-2 border-yellow-400 bg-white"
+          />
+          <span className="text-yellow-200 text-xs flex-shrink-0">サイズ:</span>
+          <input type="range" min={10} max={60} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-16 accent-yellow-400" />
+          <span className="text-yellow-200 text-sm font-bold">{fontSize}px</span>
+        </div>
+      )}
+
+      {/* 図形選択時: 削除ボタン（画面下部） */}
+      {selId && !imageMode && sel?.type !== "text" && (
+        <div className="flex items-center justify-center gap-3 px-2 py-2 bg-gray-800 border-t border-gray-700">
+          <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }}
+            className="px-6 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700">
+            選択した図形を削除
+          </button>
+        </div>
+      )}
     </div>
   );
 }
