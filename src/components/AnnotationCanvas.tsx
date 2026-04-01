@@ -175,6 +175,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("select");
+  const [imageMode, setImageMode] = useState(false); // true=画像操作モード
   const [handle, setHandle] = useState<HandleType>("none");
   const [shiftHeld, setShiftHeld] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
@@ -350,8 +351,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (imageMode) return; // 画像操作モード中は描画しない
     if ("touches" in e) {
-      if (e.touches.length >= 2) return; // ピンチズーム中は描画しない
+      if (e.touches.length >= 2) return;
       e.preventDefault();
     }
     const p = getPos(e);
@@ -386,8 +388,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (imageMode) return;
     if ("touches" in e) {
-      if (e.touches.length >= 2) return; // ピンチズーム中
+      if (e.touches.length >= 2) return;
       e.preventDefault();
     }
     const p = getPos(e);
@@ -510,13 +513,18 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       {/* ツールバー */}
       <div className="flex flex-wrap items-center justify-between px-1.5 py-1 bg-gray-900 gap-1">
         <div className="flex gap-0.5 flex-wrap items-center">
-          {allTools.map((t) => (
+          <button onClick={() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); }}
+            className={`px-2 py-1.5 rounded text-xs font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+            {imageMode ? "🔍 画像操作中" : "🔍 画像操作"}
+          </button>
+          <span className="w-px h-5 bg-gray-600 mx-1" />
+          {!imageMode && allTools.map((t) => (
             <button key={t.id} onClick={() => { setTool(t.id); if (t.id !== "select") setSelId(null); }}
-              className={`px-2 py-1.5 rounded text-xs font-medium ${tool === t.id ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+              className={`px-2 py-1.5 rounded text-xs font-medium ${tool === t.id && !imageMode ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
               {t.label}
             </button>
           ))}
-          <span className="w-px h-5 bg-gray-600 mx-1" />
+          {!imageMode && <span className="w-px h-5 bg-gray-600 mx-1" />}
           {COLORS.map((c) => (
             <button key={c.v} onClick={() => { setColor(c.v); if (selId) updateSel({ color: c.v }); }}
               className={`w-5 h-5 rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
@@ -586,7 +594,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
-            style={{ position: "absolute", top: 0, left: 0, touchAction: "none" }}
+            style={{ position: "absolute", top: 0, left: 0, touchAction: imageMode ? "auto" : "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
             onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
