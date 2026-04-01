@@ -207,35 +207,48 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, [selId, anns]);
 
-  // ピンチズーム対応
+  // ピンチズーム対応（containerRefに付ける）
+  const pinchRef = useRef({ lastDist: 0, active: false });
   useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-    let lastDist = 0;
+    const container = containerRef.current;
+    if (!container) return;
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        e.preventDefault();
+        pinchRef.current.lastDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        pinchRef.current.active = true;
       }
     };
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 2 && pinchRef.current.active) {
         e.preventDefault();
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        if (lastDist > 0) {
-          const ratio = dist / lastDist;
-          setZoom((prev) => Math.max(30, Math.min(300, Math.round(prev * ratio))));
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (pinchRef.current.lastDist > 0) {
+          const ratio = dist / pinchRef.current.lastDist;
+          // ゆるやかに変化させる
+          const smoothRatio = 1 + (ratio - 1) * 0.5;
+          setZoom((prev) => Math.max(30, Math.min(300, Math.round(prev * smoothRatio))));
         }
-        lastDist = dist;
+        pinchRef.current.lastDist = dist;
       }
     };
-    const handleTouchEnd = () => { lastDist = 0; };
-    wrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
-    wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
-    wrapper.addEventListener("touchend", handleTouchEnd);
+    const handleTouchEnd = () => {
+      pinchRef.current.lastDist = 0;
+      pinchRef.current.active = false;
+    };
+    container.addEventListener("touchstart", handleTouchStart, { passive: false });
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+    container.addEventListener("touchend", handleTouchEnd);
     return () => {
-      wrapper.removeEventListener("touchstart", handleTouchStart);
-      wrapper.removeEventListener("touchmove", handleTouchMove);
-      wrapper.removeEventListener("touchend", handleTouchEnd);
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
     };
   }, []);
 
@@ -336,7 +349,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if ("touches" in e) e.preventDefault();
+    if ("touches" in e) {
+      if (e.touches.length >= 2) return; // ピンチズーム中は描画しない
+      e.preventDefault();
+    }
     const p = getPos(e);
     if (tool === "text") {
       // テキスト追加
@@ -367,7 +383,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if ("touches" in e) e.preventDefault();
+    if ("touches" in e) {
+      if (e.touches.length >= 2) return; // ピンチズーム中
+      e.preventDefault();
+    }
     const p = getPos(e);
     setCurrentPos(p);
     if (!startPos) return;
@@ -548,8 +567,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2">
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
-            className={`touch-none ${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
-            style={{ position: "absolute", top: 0, left: 0 }}
+            className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
+            style={{ position: "absolute", top: 0, left: 0, touchAction: "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
             onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
