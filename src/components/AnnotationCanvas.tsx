@@ -95,7 +95,7 @@ function hitHandle(a: Annotation, x: number, y: number): HandleType {
 export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsChange, onSave, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tool, setTool] = useState<Tool>("circle");
+  const [tool, setTool] = useState<Tool>("select");
   const [handle, setHandle] = useState<HandleType>("none");
   const [shiftHeld, setShiftHeld] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);

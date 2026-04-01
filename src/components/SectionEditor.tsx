@@ -142,22 +142,23 @@ export default function SectionEditor({
           >
             {displayImage ? (
               <div>
-                <div className="relative overflow-hidden rounded-xl bg-gray-100">
+                <div className="overflow-auto rounded-xl bg-gray-100" style={{ maxHeight: "500px" }}>
                   <img
                     src={displayImage}
                     alt={section.imageName}
                     className="object-contain rounded-xl"
-                    style={{ width: `${imageScale}%`, maxWidth: "100%" }}
+                    style={{ width: `${imageScale}%` }}
                   />
                 </div>
                 {/* 画像サイズスライダー */}
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2 bg-gray-50 rounded-lg p-2">
+                  <span className="text-sm text-gray-500 font-bold">画像サイズ:</span>
                   <span className="text-xs text-gray-400">小</span>
-                  <input type="range" min={30} max={100} value={imageScale}
+                  <input type="range" min={20} max={200} value={imageScale}
                     onChange={(e) => setImageScale(Number(e.target.value))}
                     className="flex-1 accent-blue-500" />
                   <span className="text-xs text-gray-400">大</span>
-                  <span className="text-xs text-gray-500 w-8">{imageScale}%</span>
+                  <span className="text-sm text-gray-600 font-bold w-12 text-right">{imageScale}%</span>
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button
