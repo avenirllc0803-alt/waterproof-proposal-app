@@ -84,6 +84,7 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
   const [text, setText] = useState(ann.text || "");
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef<{ x: number; y: number; annX: number; annY: number } | null>(null);
+  const lastTap = useRef(0);
   const fs = ann.fontSize || 18;
 
   useEffect(() => { setText(ann.text || ""); }, [ann.text]);
@@ -96,6 +97,16 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     if (editing) return;
+
+    // ダブルタップ検知（スマホ用）
+    const now = Date.now();
+    if (now - lastTap.current < 400) {
+      setEditing(true);
+      lastTap.current = 0;
+      return;
+    }
+    lastTap.current = now;
+
     onSelect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
@@ -122,7 +133,6 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
     window.addEventListener("touchend", handleUp);
   };
 
-  // 枠線: boxedの時だけ表示。選択時は青枠。両方同時にはしない。
   const borderStyle = isSelected
     ? "2px solid #0088ff"
     : ann.boxed ? `2px solid ${ann.color || "#FF0000"}` : "1px dashed transparent";
@@ -153,7 +163,7 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
         />
       ) : (
         <span style={{ fontSize: fs, fontWeight: "bold", color: ann.color || "#FF0000", whiteSpace: "nowrap", userSelect: "none" }}>
-          {ann.text || "(ダブルクリックで入力)"}
+          {ann.text || "(タップ2回で入力)"}
         </span>
       )}
     </div>
@@ -196,6 +206,38 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, [selId, anns]);
+
+  // ピンチズーム対応
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    let lastDist = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      }
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        if (lastDist > 0) {
+          const ratio = dist / lastDist;
+          setZoom((prev) => Math.max(30, Math.min(300, Math.round(prev * ratio))));
+        }
+        lastDist = dist;
+      }
+    };
+    const handleTouchEnd = () => { lastDist = 0; };
+    wrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
+    wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
+    wrapper.addEventListener("touchend", handleTouchEnd);
+    return () => {
+      wrapper.removeEventListener("touchstart", handleTouchStart);
+      wrapper.removeEventListener("touchmove", handleTouchMove);
+      wrapper.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, []);
 
   useEffect(() => {
     const img = new Image();
