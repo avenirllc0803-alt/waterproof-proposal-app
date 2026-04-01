@@ -39,11 +39,12 @@ function getBBox(a: Annotation): { x1: number; y1: number; x2: number; y2: numbe
   if (a.type === "arrow") {
     return { x1: Math.min(a.x, a.endX || a.x), y1: Math.min(a.y, a.endY || a.y), x2: Math.max(a.x, a.endX || a.x), y2: Math.max(a.y, a.endY || a.y) };
   }
-  // テキスト: フォントサイズと文字数から概算
+  // テキスト: x,yは左上基準、widthはフォントサイズ×文字数で概算
   const fs = a.fontSize || 18;
   const textLen = (a.text || "").length;
-  const estWidth = Math.max(textLen * fs * 0.65, 30);
-  return { x1: a.x - 8, y1: a.y - fs - 8, x2: a.x + estWidth + 8, y2: a.y + 8 };
+  const estWidth = Math.max(textLen * fs * 0.7, 40);
+  const estHeight = fs + 10;
+  return { x1: a.x, y1: a.y, x2: a.x + estWidth, y2: a.y + estHeight };
 }
 
 function hitTestShape(a: Annotation, x: number, y: number): boolean {
@@ -112,6 +113,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [textBoxed, setTextBoxed] = useState(false);
   const [textBgColor, setTextBgColor] = useState("");
   const [fontSize, setFontSize] = useState(18);
+  const [zoom, setZoom] = useState(100);
+  const baseScale = useRef(1);
 
   const sel = anns.find((a) => a.id === selId);
 
@@ -137,11 +140,19 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       const c = containerRef.current;
       if (c) {
         const scale = Math.min((c.clientWidth - 4) / img.width, (c.clientHeight - 4) / img.height);
+        baseScale.current = scale;
         setCvs({ width: Math.floor(img.width * scale), height: Math.floor(img.height * scale) });
       }
     };
     img.src = imageUrl;
   }, [imageUrl]);
+
+  // ズーム変更
+  useEffect(() => {
+    if (!image) return;
+    const scale = baseScale.current * (zoom / 100);
+    setCvs({ width: Math.floor(image.width * scale), height: Math.floor(image.height * scale) });
+  }, [zoom, image]);
 
   const drawAnn = useCallback((ctx: CanvasRenderingContext2D, a: Annotation, isSel: boolean) => {
     const c = a.color || "#FF0000";
@@ -165,14 +176,20 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     } else if (a.type === "text" && a.text) {
       const fs = a.fontSize || 18;
       ctx.font = `bold ${fs}px sans-serif`;
+      ctx.textBaseline = "top";
       const m = ctx.measureText(a.text);
       const pad = 5;
-      if (a.boxed || a.bgColor) {
-        ctx.fillStyle = a.bgColor || "rgba(255,255,255,0.85)";
-        ctx.fillRect(a.x - pad, a.y - fs - pad, m.width + pad * 2, fs + pad * 2);
-        if (a.boxed) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.strokeRect(a.x - pad, a.y - fs - pad, m.width + pad * 2, fs + pad * 2); }
+      if (a.bgColor) {
+        ctx.fillStyle = a.bgColor;
+        ctx.fillRect(a.x - pad, a.y - pad, m.width + pad * 2, fs + pad * 2);
       }
-      ctx.fillStyle = c; ctx.font = `bold ${fs}px sans-serif`; ctx.fillText(a.text, a.x, a.y);
+      if (a.boxed) {
+        ctx.strokeStyle = c; ctx.lineWidth = 1.5;
+        ctx.strokeRect(a.x - pad, a.y - pad, m.width + pad * 2, fs + pad * 2);
+      }
+      ctx.fillStyle = c; ctx.font = `bold ${fs}px sans-serif`; ctx.textBaseline = "top";
+      ctx.fillText(a.text, a.x, a.y);
+      ctx.textBaseline = "alphabetic";
     }
 
     if (isSel) {
@@ -432,6 +449,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           <span className="w-px h-5 bg-gray-600 mx-1" />
           <input type="range" min={2} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-14 accent-blue-500" />
           <span className="text-gray-400 text-xs">{lineWidth}px</span>
+          <span className="w-px h-5 bg-gray-600 mx-1" />
+          <span className="text-gray-400 text-xs">画像:</span>
+          <input type="range" min={50} max={200} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-16 accent-green-500" />
+          <span className="text-green-400 text-xs">{zoom}%</span>
         </div>
         <div className="flex gap-1">
           {selId && <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }} className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">削除</button>}
