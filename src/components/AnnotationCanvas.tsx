@@ -461,6 +461,15 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
+      {/* テキスト選択時: 文字サイズスライダー */}
+      {sel?.type === "text" && (
+        <div className="flex flex-wrap items-center gap-3 px-3 py-1.5 bg-gray-800 border-t border-gray-700">
+          <span className="text-gray-300 text-sm font-bold">文字サイズ:</span>
+          <input type="range" min={10} max={60} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-32 accent-blue-500" />
+          <span className="text-white text-sm font-bold">{sel.fontSize || 18}px</span>
+        </div>
+      )}
+
       {/* 丸・四角選択時プロパティ */}
       {sel && (sel.type === "circle" || sel.type === "rectangle") && (
         <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
