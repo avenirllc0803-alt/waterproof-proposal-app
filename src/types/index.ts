@@ -7,14 +7,18 @@ export interface CustomerInfo {
 
 export interface Annotation {
   id: string;
-  type: "circle" | "arrow" | "text";
+  type: "circle" | "arrow" | "text" | "rectangle";
   x: number;
   y: number;
   radiusX?: number;
   radiusY?: number;
   endX?: number;
   endY?: number;
+  width?: number;
+  height?: number;
   text?: string;
+  color?: string;
+  lineWidth?: number;
 }
 
 export interface ProposalSection {

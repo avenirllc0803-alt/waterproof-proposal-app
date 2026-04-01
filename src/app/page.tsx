@@ -24,9 +24,14 @@ export default function Home() {
     router.push("/estimate");
   };
 
+  const loadInvoiceDemo = () => {
+    sessionStorage.setItem("useInvoiceDemo", "true");
+    router.push("/invoice");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-lg md:max-w-2xl lg:max-w-4xl">
+      <div className="w-full max-w-lg md:max-w-2xl lg:max-w-5xl xl:max-w-full xl:px-12">
         {/* ヘッダー */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-4">
@@ -126,6 +131,12 @@ export default function Home() {
               className="w-full bg-orange-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-orange-700 transition-colors shadow"
             >
               作成する
+            </button>
+            <button
+              onClick={loadInvoiceDemo}
+              className="w-full mt-3 bg-gray-100 text-gray-600 py-3 rounded-xl text-base hover:bg-gray-200 transition-colors"
+            >
+              デモで試す
             </button>
           </div>
         </div>

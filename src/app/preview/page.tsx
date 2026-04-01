@@ -83,7 +83,7 @@ export default function PreviewPage() {
     <div className="min-h-screen bg-gray-100 pb-24">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 px-4 py-3">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.push("/edit")}
@@ -122,7 +122,7 @@ export default function PreviewPage() {
       </div>
 
       {/* ガイドメッセージ */}
-      <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 pt-4">
+      <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 px-4 pt-4">
         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
           <p className="text-green-700 text-sm sm:text-base text-center">
             内容を確認して、問題なければ「PDF出力」ボタンでダウンロードできます。
@@ -131,7 +131,7 @@ export default function PreviewPage() {
       </div>
 
       {/* Preview content */}
-      <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto p-4">
+      <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 p-4">
         <div
           ref={previewRef}
           className="bg-white shadow-lg"

@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from "react";
 import type { ProposalSection } from "@/types";
+import { descriptionTemplates } from "@/data/templates";
 import AnnotationCanvas from "./AnnotationCanvas";
-import TemplateSelector from "./TemplateSelector";
 
 interface Props {
   section: ProposalSection;
@@ -23,7 +23,7 @@ export default function SectionEditor({
   onMove,
 }: Props) {
   const [showAnnotation, setShowAnnotation] = useState(false);
-  const [showTemplate, setShowTemplate] = useState(false);
+  const [openTemplateCategory, setOpenTemplateCategory] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -204,28 +204,54 @@ export default function SectionEditor({
           </div>
 
           {/* 説明文エリア */}
-          <div className="mt-4 lg:mt-0 lg:w-1/2">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-base font-bold text-gray-700">
-                説明文
-              </label>
-            </div>
-            {/* テンプレートボタン（目立つ配置） */}
-            <button
-              onClick={() => setShowTemplate(true)}
-              className="w-full mb-3 py-3 bg-amber-50 border-2 border-amber-300 text-amber-700 rounded-xl text-sm sm:text-base font-bold hover:bg-amber-100 transition-colors"
-            >
-              テンプレートから選ぶ（かんたん入力）
-            </button>
+          <div className="mt-4 lg:mt-0 lg:w-1/2 flex flex-col">
+            <label className="text-base font-bold text-gray-700 mb-2">
+              説明文
+            </label>
             <textarea
               value={section.description}
               onChange={(e) =>
                 onUpdate({ ...section, description: e.target.value })
               }
               rows={4}
-              className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base resize-none lg:h-48"
-              placeholder="説明文を入力してください..."
+              className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base resize-none lg:h-36"
+              placeholder="説明文を入力、またはテンプレートから選択..."
             />
+            {/* テンプレート（常時表示アコーディオン） */}
+            <div className="mt-3 border-2 border-amber-200 rounded-xl overflow-hidden bg-amber-50">
+              <div className="px-3 py-2 text-sm font-bold text-amber-700">テンプレートから選ぶ</div>
+              <div className="max-h-40 overflow-y-auto bg-white">
+                {descriptionTemplates.map((cat, catIdx) => (
+                  <div key={catIdx} className="border-t border-gray-100">
+                    <button
+                      onClick={() => setOpenTemplateCategory(openTemplateCategory === catIdx ? null : catIdx)}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left"
+                    >
+                      <span className="text-sm font-medium text-gray-700">{cat.category}</span>
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${openTemplateCategory === catIdx ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {openTemplateCategory === catIdx && (
+                      <div className="bg-gray-50">
+                        {cat.templates.map((tmpl, tmplIdx) => (
+                          <button
+                            key={tmplIdx}
+                            onClick={() => {
+                              const newDesc = section.description ? section.description + "\n" + tmpl : tmpl;
+                              onUpdate({ ...section, description: newDesc });
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-blue-50 text-xs text-gray-600 border-t border-gray-100"
+                          >
+                            {tmpl.length > 60 ? tmpl.slice(0, 60) + "..." : tmpl}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -241,14 +267,6 @@ export default function SectionEditor({
             onUpdate({ ...section, annotatedImageUrl: dataUrl })
           }
           onClose={() => setShowAnnotation(false)}
-        />
-      )}
-
-      {showTemplate && (
-        <TemplateSelector
-          currentDescription={section.description}
-          onSelect={(desc) => onUpdate({ ...section, description: desc })}
-          onClose={() => setShowTemplate(false)}
         />
       )}
     </div>

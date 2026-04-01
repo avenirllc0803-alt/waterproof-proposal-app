@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, EstimateItem } from "@/types";
+import { demoEstimateItems } from "@/data/estimateTemplates";
 
 export default function InvoicePage() {
   const router = useRouter();
@@ -41,6 +42,19 @@ export default function InvoicePage() {
         sessionStorage.removeItem("invoiceFromEstimate");
         setStep("preview");
       } catch { /* ignore */ }
+    }
+    const isDemo = sessionStorage.getItem("useInvoiceDemo");
+    if (isDemo === "true") {
+      setForm({
+        customerName: "サンプル不動産 様",
+        propertyName: "サンプルマンション 屋上防水工事",
+        date: new Date().toISOString().split("T")[0],
+        companyName: "防水工房サンプル",
+      });
+      setItems(demoEstimateItems.map((d, i) => ({ ...d, id: `demo-${i}` })));
+      setBankInfo("サンプル銀行 渋谷支店 普通 1234567\n口座名義：カ）ボウスイコウボウサンプル");
+      sessionStorage.removeItem("useInvoiceDemo");
+      setStep("preview");
     }
   }, []);
 
@@ -194,7 +208,7 @@ export default function InvoicePage() {
   return (
     <div className="min-h-screen bg-gray-100 pb-28">
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 px-4 py-3">
           <div className="flex items-center justify-between">
             <button onClick={() => setStep("info")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 戻る</button>
             <h1 className="font-bold text-gray-800 text-lg">請求書プレビュー</h1>
@@ -206,7 +220,7 @@ export default function InvoicePage() {
         </div>
       </div>
 
-      <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto p-4">
+      <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 p-4">
         <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "40px", minHeight: "297mm" }}>
           <h1 className="text-3xl font-bold text-center mb-8 tracking-widest">請 求 書</h1>
 
@@ -279,7 +293,7 @@ export default function InvoicePage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
-        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto flex gap-3">
+        <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 flex gap-3">
           <button onClick={saveToPC} className="flex-shrink-0 px-5 py-4 bg-gray-100 text-gray-700 rounded-xl text-base font-bold hover:bg-gray-200">PCに保存</button>
           <button onClick={generatePdf} disabled={generating}
             className="flex-1 bg-orange-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-lg">

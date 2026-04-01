@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, EstimateItem } from "@/types";
 import { estimateTemplates, demoEstimateItems } from "@/data/estimateTemplates";
@@ -9,8 +9,10 @@ export default function EstimatePage() {
   const router = useRouter();
   const previewRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<"info" | "items" | "preview">("info");
-  const [showTemplates, setShowTemplates] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const itemNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [form, setForm] = useState<CustomerInfo>({
     customerName: "",
     propertyName: "",
@@ -43,11 +45,23 @@ export default function EstimatePage() {
     }
   }, []);
 
-  const addItem = () => {
+  // クリック外でドロップダウンを閉じる
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const addItem = useCallback(() => {
+    const newId = Date.now().toString();
     setItems((prev) => [
       ...prev,
       {
-        id: Date.now().toString(),
+        id: newId,
         category: "",
         name: "",
         unit: "㎡",
@@ -56,21 +70,22 @@ export default function EstimatePage() {
         note: "",
       },
     ]);
-  };
+    // 新しい項目のドロップダウンを開き、フォーカスする
+    setTimeout(() => {
+      setOpenDropdownId(newId);
+      itemNameRefs.current[newId]?.focus();
+    }, 50);
+  }, []);
 
-  const addFromTemplate = (cat: string, tmpl: { name: string; unit: string; unitPrice: number; note: string }) => {
-    setItems((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString() + Math.random(),
-        category: cat,
-        name: tmpl.name,
-        unit: tmpl.unit,
-        quantity: 0,
-        unitPrice: tmpl.unitPrice,
-        note: tmpl.note,
-      },
-    ]);
+  const applyTemplate = (itemId: string, cat: string, tmpl: { name: string; unit: string; unitPrice: number; note: string }) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? { ...item, category: cat, name: tmpl.name, unit: tmpl.unit, unitPrice: tmpl.unitPrice, note: tmpl.note }
+          : item
+      )
+    );
+    setOpenDropdownId(null);
   };
 
   const updateItem = (id: string, field: keyof EstimateItem, value: string | number) => {
@@ -231,7 +246,7 @@ export default function EstimatePage() {
     return (
       <div className="min-h-screen pb-28">
         <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-2xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-3">
+          <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-12 xl:px-16 py-3">
             <div className="flex items-center justify-between">
               <button onClick={() => setStep("info")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 戻る</button>
               <h1 className="font-bold text-gray-800 text-lg">見積書 — 項目入力</h1>
@@ -241,43 +256,7 @@ export default function EstimatePage() {
           </div>
         </div>
 
-        <div className="max-w-2xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-4">
-          {/* テンプレートボタン */}
-          <button
-            onClick={() => setShowTemplates(!showTemplates)}
-            className="w-full mb-4 py-4 bg-amber-50 border-2 border-amber-300 text-amber-700 rounded-xl text-base font-bold hover:bg-amber-100 transition-colors"
-          >
-            {showTemplates ? "テンプレートを閉じる ▲" : "テンプレートから項目を追加（かんたん入力）▼"}
-          </button>
-
-          {/* テンプレート一覧 */}
-          {showTemplates && (
-            <div className="mb-6 bg-white rounded-2xl border-2 border-gray-200 overflow-hidden max-h-96 overflow-y-auto">
-              {estimateTemplates.map((cat) => (
-                <div key={cat.category} className="border-b last:border-b-0">
-                  <div className="px-4 py-3 bg-gray-50 font-bold text-gray-700 text-sm">{cat.category}</div>
-                  <div className="divide-y">
-                    {cat.items.map((tmpl, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => addFromTemplate(cat.category, tmpl)}
-                        className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center justify-between gap-2"
-                      >
-                        <div>
-                          <span className="text-sm font-medium text-gray-800">{tmpl.name}</span>
-                          {tmpl.note && <span className="text-xs text-gray-400 ml-2">({tmpl.note})</span>}
-                        </div>
-                        <span className="text-sm text-gray-500 flex-shrink-0">
-                          ¥{formatNumber(tmpl.unitPrice)}/{tmpl.unit}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
+        <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-12 xl:px-16 py-4">
           {/* 項目リスト */}
           <div className="space-y-3">
             {items.map((item, i) => (
@@ -287,10 +266,52 @@ export default function EstimatePage() {
                   <button onClick={() => deleteItem(item.id)} className="text-red-400 hover:text-red-600 text-sm px-2 py-1">削除</button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-2 relative" ref={openDropdownId === item.id ? dropdownRef : undefined}>
                     <label className="text-xs font-bold text-gray-500 mb-1 block">項目名</label>
-                    <input type="text" value={item.name} onChange={(e) => updateItem(item.id, "name", e.target.value)}
-                      className="w-full px-3 py-3 border-2 border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-green-500 focus:border-green-500" placeholder="項目名" />
+                    <div className="flex">
+                      <input
+                        type="text"
+                        ref={(el) => { itemNameRefs.current[item.id] = el; }}
+                        value={item.name}
+                        onChange={(e) => updateItem(item.id, "name", e.target.value)}
+                        className="w-full px-3 py-3 border-2 border-gray-300 rounded-l-lg text-base focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        placeholder="項目名"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
+                        className="px-3 py-3 border-2 border-l-0 border-gray-300 rounded-r-lg bg-gray-50 hover:bg-amber-50 hover:border-amber-300 text-gray-500 hover:text-amber-700 transition-colors text-sm font-bold flex-shrink-0"
+                        title="テンプレートから選択"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                    {openDropdownId === item.id && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border-2 border-gray-200 shadow-xl z-20 max-h-72 overflow-y-auto" style={{ minWidth: "320px" }}>
+                        {estimateTemplates.map((cat) => (
+                          <div key={cat.category} className="border-b last:border-b-0">
+                            <div className="px-4 py-2 bg-gray-50 font-bold text-gray-700 text-xs sticky top-0">{cat.category}</div>
+                            <div className="divide-y">
+                              {cat.items.map((tmpl, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => applyTemplate(item.id, cat.category, tmpl)}
+                                  className="w-full text-left px-4 py-2 hover:bg-green-50 flex items-center justify-between gap-2"
+                                >
+                                  <div>
+                                    <span className="text-sm font-medium text-gray-800">{tmpl.name}</span>
+                                    {tmpl.note && <span className="text-xs text-gray-400 ml-2">({tmpl.note})</span>}
+                                  </div>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">
+                                    ¥{formatNumber(tmpl.unitPrice)}/{tmpl.unit}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-bold text-gray-500 mb-1 block">数量</label>
@@ -321,7 +342,7 @@ export default function EstimatePage() {
 
             <button onClick={addItem} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-colors font-bold text-base"
               style={{ borderWidth: "3px" }}>
-              + 項目を手動で追加
+              + 項目を追加
             </button>
           </div>
 
@@ -354,7 +375,7 @@ export default function EstimatePage() {
         {/* 下部バー */}
         {items.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
-            <div className="max-w-2xl lg:max-w-6xl xl:max-w-7xl mx-auto flex gap-3">
+            <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-12 xl:px-16 flex gap-3">
               <button onClick={saveToPC} className="flex-shrink-0 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl text-base font-bold hover:bg-gray-200 transition-colors">
                 PCに保存
               </button>
@@ -372,7 +393,7 @@ export default function EstimatePage() {
   return (
     <div className="min-h-screen bg-gray-100 pb-28">
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto px-4 lg:px-12 xl:px-16 py-3">
           <div className="flex items-center justify-between">
             <button onClick={() => setStep("items")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 項目に戻る</button>
             <h1 className="font-bold text-gray-800 text-lg">見積書プレビュー</h1>
@@ -386,7 +407,7 @@ export default function EstimatePage() {
         </div>
       </div>
 
-      <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto p-4">
+      <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto p-4 lg:px-12 xl:px-16">
         <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "40px", minHeight: "297mm" }}>
           {/* 見積書ヘッダー */}
           <h1 className="text-3xl font-bold text-center mb-8 tracking-widest">御 見 積 書</h1>
@@ -465,7 +486,7 @@ export default function EstimatePage() {
 
       {/* 下部バー */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
-        <div className="max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto flex gap-3">
+        <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto px-4 lg:px-12 xl:px-16 flex gap-3">
           <button onClick={saveToPC} className="flex-shrink-0 px-5 py-4 bg-gray-100 text-gray-700 rounded-xl text-base font-bold hover:bg-gray-200">
             PCに保存
           </button>

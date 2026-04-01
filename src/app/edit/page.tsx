@@ -76,7 +76,7 @@ export default function EditPage() {
     <div className="min-h-screen pb-28">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-3">
+        <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-10 xl:px-16 py-3">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.push("/")}
@@ -113,7 +113,7 @@ export default function EditPage() {
       </div>
 
       {/* ガイドメッセージ */}
-      <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 pt-4">
+      <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-10 xl:px-16 pt-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
           <p className="text-blue-700 text-sm sm:text-base text-center">
             {sections.length === 0
@@ -124,7 +124,7 @@ export default function EditPage() {
       </div>
 
       {/* Sections */}
-      <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-4 space-y-4">
+      <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-10 xl:px-16 py-4 space-y-4">
         {sections.length === 0 && (
           <div className="text-center py-12 text-gray-400">
             <svg
