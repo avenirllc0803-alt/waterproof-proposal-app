@@ -248,9 +248,12 @@ export default function EstimatePage() {
         <div className="bg-white border-b sticky top-0 z-10">
           <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-12 xl:px-16 py-3">
             <div className="flex items-center justify-between">
-              <button onClick={() => setStep("info")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 戻る</button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setStep("info")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 戻る</button>
+                <button onClick={() => router.push("/")} className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100">トップ</button>
+              </div>
               <h1 className="font-bold text-gray-800 text-lg">見積書 — 項目入力</h1>
-              <div className="w-16" />
+              <div className="w-24" />
             </div>
             <div className="mt-2 text-sm text-gray-500 text-center">{form.propertyName} / {form.customerName}</div>
           </div>
@@ -395,7 +398,10 @@ export default function EstimatePage() {
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto px-4 lg:px-12 xl:px-16 py-3">
           <div className="flex items-center justify-between">
-            <button onClick={() => setStep("items")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 項目に戻る</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep("items")} className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100">← 項目に戻る</button>
+              <button onClick={() => router.push("/")} className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100">トップ</button>
+            </div>
             <h1 className="font-bold text-gray-800 text-lg">見積書プレビュー</h1>
             <div className="flex gap-2">
               <button onClick={generatePdf} disabled={generating}
@@ -408,52 +414,52 @@ export default function EstimatePage() {
       </div>
 
       <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto p-4 lg:px-12 xl:px-16">
-        <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "40px", minHeight: "297mm" }}>
+        <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "48px", minHeight: "297mm", maxWidth: "210mm", margin: "0 auto" }}>
           {/* 見積書ヘッダー */}
-          <h1 className="text-3xl font-bold text-center mb-8 tracking-widest">御 見 積 書</h1>
+          <h1 className="text-4xl font-bold text-center mb-10 tracking-widest">御 見 積 書</h1>
 
           <div className="flex justify-between items-start mb-8">
             <div>
-              <p className="text-lg font-bold border-b-2 border-gray-800 pb-1 inline-block">{form.customerName}</p>
-              <p className="text-sm text-gray-600 mt-2">工事名：{form.propertyName}</p>
+              <p className="text-xl font-bold border-b-2 border-gray-800 pb-1 inline-block">{form.customerName}</p>
+              <p className="text-base text-gray-600 mt-2">工事名：{form.propertyName}</p>
             </div>
-            <div className="text-right text-sm text-gray-600">
-              <p className="font-medium text-base">{form.companyName}</p>
+            <div className="text-right text-base text-gray-600">
+              <p className="font-medium text-lg">{form.companyName}</p>
               <p className="mt-1">見積日：{form.date.replace(/-/g, "/")}</p>
               <p>有効期限：{validUntil.replace(/-/g, "/")}</p>
             </div>
           </div>
 
           {/* 合計金額 */}
-          <div className="bg-gray-50 border-2 border-gray-800 rounded-lg p-4 mb-8 text-center">
-            <p className="text-sm text-gray-600 mb-1">お見積金額（税込）</p>
-            <p className="text-3xl font-bold">¥{formatNumber(total)}-</p>
+          <div className="bg-gray-50 border-2 border-gray-800 rounded-lg p-5 mb-8 text-center">
+            <p className="text-base text-gray-600 mb-1">お見積金額（税込）</p>
+            <p className="text-4xl font-bold">¥{formatNumber(total)}-</p>
           </div>
 
           {/* 明細テーブル */}
-          <table className="w-full border-collapse mb-6 text-sm">
+          <table className="w-full border-collapse mb-8 text-base">
             <thead>
               <tr className="bg-gray-800 text-white">
-                <th className="py-2 px-3 text-left">No.</th>
-                <th className="py-2 px-3 text-left">項目名</th>
-                <th className="py-2 px-3 text-right">数量</th>
-                <th className="py-2 px-3 text-center">単位</th>
-                <th className="py-2 px-3 text-right">単価</th>
-                <th className="py-2 px-3 text-right">金額</th>
+                <th className="py-3 px-3 text-left">No.</th>
+                <th className="py-3 px-3 text-left">項目名</th>
+                <th className="py-3 px-3 text-right">数量</th>
+                <th className="py-3 px-3 text-center">単位</th>
+                <th className="py-3 px-3 text-right">単価</th>
+                <th className="py-3 px-3 text-right">金額</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, i) => (
                 <tr key={item.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                  <td className="py-2 px-3 border-b">{i + 1}</td>
-                  <td className="py-2 px-3 border-b">
+                  <td className="py-2.5 px-3 border-b">{i + 1}</td>
+                  <td className="py-2.5 px-3 border-b">
                     {item.name}
-                    {item.note && <span className="text-xs text-gray-400 ml-1">({item.note})</span>}
+                    {item.note && <span className="text-sm text-gray-400 ml-1">({item.note})</span>}
                   </td>
-                  <td className="py-2 px-3 border-b text-right">{item.quantity}</td>
-                  <td className="py-2 px-3 border-b text-center">{item.unit}</td>
-                  <td className="py-2 px-3 border-b text-right">¥{formatNumber(item.unitPrice)}</td>
-                  <td className="py-2 px-3 border-b text-right font-medium">¥{formatNumber(item.quantity * item.unitPrice)}</td>
+                  <td className="py-2.5 px-3 border-b text-right">{item.quantity}</td>
+                  <td className="py-2.5 px-3 border-b text-center">{item.unit}</td>
+                  <td className="py-2.5 px-3 border-b text-right">¥{formatNumber(item.unitPrice)}</td>
+                  <td className="py-2.5 px-3 border-b text-right font-medium">¥{formatNumber(item.quantity * item.unitPrice)}</td>
                 </tr>
               ))}
             </tbody>
@@ -461,14 +467,14 @@ export default function EstimatePage() {
 
           {/* 合計欄 */}
           <div className="flex justify-end">
-            <div className="w-64">
-              <div className="flex justify-between py-2 border-b text-sm">
+            <div className="w-72">
+              <div className="flex justify-between py-2 border-b text-base">
                 <span>小計</span><span>¥{formatNumber(subtotal)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b text-sm">
+              <div className="flex justify-between py-2 border-b text-base">
                 <span>消費税（{taxRate}%）</span><span>¥{formatNumber(tax)}</span>
               </div>
-              <div className="flex justify-between py-2 text-lg font-bold">
+              <div className="flex justify-between py-3 text-xl font-bold">
                 <span>合計</span><span>¥{formatNumber(total)}</span>
               </div>
             </div>
@@ -477,8 +483,8 @@ export default function EstimatePage() {
           {/* 備考 */}
           {notes && (
             <div className="mt-8 border-t pt-4">
-              <p className="text-sm font-bold text-gray-700 mb-2">備考</p>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap">{notes}</p>
+              <p className="text-base font-bold text-gray-700 mb-2">備考</p>
+              <p className="text-base text-gray-600 whitespace-pre-wrap">{notes}</p>
             </div>
           )}
         </div>

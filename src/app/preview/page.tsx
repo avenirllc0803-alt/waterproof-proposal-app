@@ -85,12 +85,20 @@ export default function PreviewPage() {
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 px-4 py-3">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push("/edit")}
-              className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 -ml-3 rounded-lg hover:bg-gray-100"
-            >
-              ← 編集に戻る
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push("/edit")}
+                className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100"
+              >
+                ← 編集に戻る
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100"
+              >
+                トップ
+              </button>
+            </div>
             <h1 className="font-bold text-gray-800 text-lg">プレビュー</h1>
             <button
               onClick={generatePdf}
@@ -135,21 +143,21 @@ export default function PreviewPage() {
         <div
           ref={previewRef}
           className="bg-white shadow-lg"
-          style={{ padding: "40px", minHeight: "297mm" }}
+          style={{ padding: "48px", minHeight: "297mm", maxWidth: "210mm", margin: "0 auto" }}
         >
           {/* Document Header */}
           <div className="border-b-4 border-blue-800 pb-6 mb-8">
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                <h1 className="text-3xl font-bold text-gray-900 mb-1">
                   現場調査報告書
                 </h1>
-                <h2 className="text-lg text-gray-700">
+                <h2 className="text-xl text-gray-700">
                   {customerInfo.propertyName}
                 </h2>
               </div>
-              <div className="text-right text-sm text-gray-600">
-                <p className="font-medium text-base">
+              <div className="text-right text-base text-gray-600">
+                <p className="font-medium text-lg">
                   {customerInfo.companyName}
                 </p>
                 <p className="mt-1">
@@ -157,7 +165,7 @@ export default function PreviewPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 bg-gray-50 rounded-lg p-3 text-sm">
+            <div className="mt-4 bg-gray-50 rounded-lg p-4 text-base">
               <span className="font-medium text-gray-600">提出先：</span>
               <span className="text-gray-800">{customerInfo.customerName}</span>
             </div>
@@ -174,10 +182,10 @@ export default function PreviewPage() {
                 style={{ pageBreakInside: "avoid" }}
               >
                 <div className="flex items-start gap-1 mb-3">
-                  <span className="inline-flex items-center justify-center w-7 h-7 bg-blue-800 text-white text-sm font-bold rounded-full flex-shrink-0">
+                  <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-800 text-white text-base font-bold rounded-full flex-shrink-0">
                     {i + 1}
                   </span>
-                  <h3 className="text-base font-bold text-gray-800 mt-0.5">
+                  <h3 className="text-lg font-bold text-gray-800 mt-0.5">
                     {section.imageName || `調査箇所 ${i + 1}`}
                   </h3>
                 </div>
@@ -194,7 +202,7 @@ export default function PreviewPage() {
                   )}
                   <div className="sm:w-1/2">
                     <div className="bg-gray-50 rounded-lg p-4 h-full">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-base text-gray-700 whitespace-pre-wrap leading-relaxed">
                         {section.description}
                       </p>
                     </div>

@@ -78,14 +78,22 @@ export default function EditPage() {
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-2xl lg:max-w-full mx-auto px-4 lg:px-10 xl:px-16 py-3">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push("/")}
-              className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 -ml-3 rounded-lg hover:bg-gray-100"
-            >
-              ← 戻る
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push("/proposal")}
+                className="text-gray-500 hover:text-gray-700 text-base py-2 px-3 rounded-lg hover:bg-gray-100"
+              >
+                ← 戻る
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100"
+              >
+                トップ
+              </button>
+            </div>
             <h1 className="font-bold text-gray-800 text-lg">提案書を編集</h1>
-            <div className="w-16" />
+            <div className="w-24" />
           </div>
 
           {/* ステップ表示 */}
