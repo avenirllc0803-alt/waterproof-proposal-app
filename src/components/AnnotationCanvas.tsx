@@ -94,7 +94,7 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate, onDelete, locked }: 
     if (text.trim()) onUpdate({ text });
   };
 
-  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     if (editing || locked) return;
 
@@ -202,6 +202,23 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const sel = anns.find((a) => a.id === selId);
   const textAnns = anns.filter((a) => a.type === "text");
   const shapeAnns = anns.filter((a) => a.type !== "text");
+
+  // 注釈画面全体でページスクロール・バウンスを完全に防止（iPad/iPhone対応）
+  useEffect(() => {
+    const preventScroll = (e: TouchEvent) => {
+      // 画像操作モード中のcontainer内ピンチは許可
+      if (imageMode && containerRef.current?.contains(e.target as Node) && e.touches.length === 2) return;
+      // テキスト入力欄は通常操作許可
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      e.preventDefault();
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("touchmove", preventScroll, { passive: false });
+    return () => {
+      document.body.style.overflow = "";
+      document.removeEventListener("touchmove", preventScroll);
+    };
+  }, [imageMode]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -348,17 +365,17 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
   useEffect(() => { drawAll(); }, [drawAll]);
 
-  const getPos = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent | React.PointerEvent) => {
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
     const c = canvasRef.current; if (!c) return { x: 0, y: 0 };
     const r = c.getBoundingClientRect();
     if ("touches" in e) {
       const t = e.touches.length > 0 ? e.touches[0] : e.changedTouches[0];
       return { x: t.clientX - r.left, y: t.clientY - r.top };
     }
-    return { x: (e as React.MouseEvent).clientX - r.left, y: (e as React.MouseEvent).clientY - r.top };
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
-  const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
+  const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (imageMode) return; // 画像操作モード中は描画しない
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
@@ -395,7 +412,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     setStartPos(p); setCurrentPos(p); setHandle("none"); setSelId(null);
   };
 
-  const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
+  const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (imageMode) return;
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
@@ -437,7 +454,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
   };
 
-  const handleCanvasUp = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
+  const handleCanvasUp = (e: React.MouseEvent | React.TouchEvent) => {
     if (handle !== "none") { setHandle("none"); setStartPos(null); setCurrentPos(null); return; }
     if (!startPos || !currentPos) { setStartPos(null); setCurrentPos(null); return; }
     const ep = getPos(e);
@@ -517,7 +534,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   ];
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ touchAction: "none", overscrollBehavior: "none" }}>
       {/* ツールバー */}
       <div className="flex flex-wrap items-center justify-between px-1.5 py-1 bg-gray-900 gap-1">
         <div className="flex gap-0.5 flex-wrap items-center">
@@ -590,8 +607,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
             className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
             style={{ position: "absolute", top: 0, left: 0, touchAction: imageMode ? "auto" : "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
-            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp}
-            onPointerDown={handleCanvasDown} onPointerMove={handleCanvasMove} onPointerUp={handleCanvasUp} />
+            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
           {/* 図形の×削除ボタン */}
           {selId && !imageMode && sel && sel.type !== "text" && (() => {
