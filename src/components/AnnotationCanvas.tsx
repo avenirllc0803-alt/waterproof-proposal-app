@@ -446,9 +446,6 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
               style={{ backgroundColor: c.v }} title={c.l} />
           ))}
           <span className="w-px h-5 bg-gray-600 mx-1" />
-          <input type="range" min={1} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-14 accent-blue-500" />
-          <span className="text-gray-400 text-xs">{lineWidth}px</span>
-          <span className="w-px h-5 bg-gray-600 mx-1" />
           <span className="text-gray-400 text-xs">画像:</span>
           <input type="range" min={50} max={200} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-16 accent-green-500" />
           <span className="text-green-400 text-xs">{zoom}%</span>
