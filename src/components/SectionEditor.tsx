@@ -25,6 +25,7 @@ export default function SectionEditor({
   const [showAnnotation, setShowAnnotation] = useState(false);
   const [openTemplateCategory, setOpenTemplateCategory] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageScale, setImageScale] = useState(100);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,14 +141,25 @@ export default function SectionEditor({
             onDragLeave={handleDragLeave}
           >
             {displayImage ? (
-              <div className="relative group">
-                <img
-                  src={displayImage}
-                  alt={section.imageName}
-                  className="w-full max-h-64 lg:max-h-96 object-contain rounded-xl bg-gray-100"
-                />
-                {/* 常に表示されるボタン（スマホでもタップしやすい） */}
-                <div className="flex gap-2 mt-3">
+              <div>
+                <div className="relative overflow-hidden rounded-xl bg-gray-100">
+                  <img
+                    src={displayImage}
+                    alt={section.imageName}
+                    className="object-contain rounded-xl"
+                    style={{ width: `${imageScale}%`, maxWidth: "100%" }}
+                  />
+                </div>
+                {/* 画像サイズスライダー */}
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-gray-400">小</span>
+                  <input type="range" min={30} max={100} value={imageScale}
+                    onChange={(e) => setImageScale(Number(e.target.value))}
+                    className="flex-1 accent-blue-500" />
+                  <span className="text-xs text-gray-400">大</span>
+                  <span className="text-xs text-gray-500 w-8">{imageScale}%</span>
+                </div>
+                <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => setShowAnnotation(true)}
                     className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm sm:text-base font-bold hover:bg-red-600 transition-colors"

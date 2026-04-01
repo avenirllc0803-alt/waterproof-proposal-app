@@ -12,20 +12,19 @@ interface Props {
 }
 
 type Tool = "select" | "circle" | "arrow" | "text" | "rectangle";
-// 8方向 + 矢印の始点/終点
 type HandleType = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "start" | "end" | "move" | "none";
 
 const COLORS = [
   { v: "#FF0000", l: "赤" }, { v: "#0000FF", l: "青" }, { v: "#00AA00", l: "緑" },
-  { v: "#FFcc00", l: "黄" }, { v: "#000000", l: "黒" }, { v: "#FF6600", l: "橙" },
+  { v: "#FFcc00", l: "黄" }, { v: "#000000", l: "黒" }, { v: "#FFFFFF", l: "白" },
 ];
 const BG_COLORS = [
-  { v: "", l: "なし" }, { v: "rgba(255,255,255,0.85)", l: "白" },
-  { v: "rgba(255,255,200,0.85)", l: "黄" }, { v: "rgba(200,230,255,0.85)", l: "青" },
+  { v: "", l: "なし" }, { v: "rgba(255,255,255,0.9)", l: "白" },
+  { v: "rgba(255,255,200,0.9)", l: "黄" }, { v: "rgba(200,230,255,0.9)", l: "青" },
+  { v: "rgba(255,220,220,0.9)", l: "赤" },
 ];
-const HS = 7; // ハンドルサイズ
+const HS = 7;
 
-// 図形のバウンディングボックスを取得
 function getBBox(a: Annotation): { x1: number; y1: number; x2: number; y2: number } {
   if (a.type === "circle") {
     const rx = Math.abs(a.radiusX || 0), ry = Math.abs(a.radiusY || 0);
@@ -39,41 +38,30 @@ function getBBox(a: Annotation): { x1: number; y1: number; x2: number; y2: numbe
   if (a.type === "arrow") {
     return { x1: Math.min(a.x, a.endX || a.x), y1: Math.min(a.y, a.endY || a.y), x2: Math.max(a.x, a.endX || a.x), y2: Math.max(a.y, a.endY || a.y) };
   }
-  // テキスト: フォントサイズと文字数から概算
-  const fs = a.fontSize || 18;
-  const textLen = (a.text || "").length;
-  const estWidth = Math.max(textLen * fs * 0.65, 30);
-  return { x1: a.x - 8, y1: a.y - fs - 8, x2: a.x + estWidth + 8, y2: a.y + 8 };
+  // テキストボックス: x,y が左上、width,height がサイズ
+  return { x1: a.x, y1: a.y, x2: a.x + (a.width || 120), y2: a.y + (a.height || 30) };
 }
 
 function hitTestShape(a: Annotation, x: number, y: number): boolean {
   const bb = getBBox(a);
-  const pad = 10;
-  if (a.type === "text") return x >= bb.x1 - pad && x <= bb.x2 + pad && y >= bb.y1 - pad && y <= bb.y2 + pad;
+  const pad = 8;
   if (a.type === "circle") {
     const rx = Math.abs(a.radiusX || 1), ry = Math.abs(a.radiusY || 1);
     const dx = (x - a.x) / rx, dy = (y - a.y) / ry;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    return d < 1.3;
+    return Math.sqrt(dx * dx + dy * dy) < 1.3;
   }
-  if (a.type === "rectangle") return x >= bb.x1 - pad && x <= bb.x2 + pad && y >= bb.y1 - pad && y <= bb.y2 + pad;
   if (a.type === "arrow" && a.endX !== undefined && a.endY !== undefined) {
     const len = Math.hypot(a.endX - a.x, a.endY - a.y);
     if (len < 1) return false;
     const t = Math.max(0, Math.min(1, ((x - a.x) * (a.endX - a.x) + (y - a.y) * (a.endY - a.y)) / (len * len)));
     return Math.hypot(x - (a.x + t * (a.endX - a.x)), y - (a.y + t * (a.endY - a.y))) < pad;
   }
-  return false;
+  return x >= bb.x1 - pad && x <= bb.x2 + pad && y >= bb.y1 - pad && y <= bb.y2 + pad;
 }
 
-// 8方向ハンドルの位置
 function getHandles(a: Annotation): { type: HandleType; x: number; y: number }[] {
-  if (a.type === "text") return []; // テキストは移動のみ（ハンドルなし）
   if (a.type === "arrow") {
-    return [
-      { type: "start", x: a.x, y: a.y },
-      { type: "end", x: a.endX || a.x, y: a.endY || a.y },
-    ];
+    return [{ type: "start", x: a.x, y: a.y }, { type: "end", x: a.endX || a.x, y: a.endY || a.y }];
   }
   const bb = getBBox(a);
   const cx = (bb.x1 + bb.x2) / 2, cy = (bb.y1 + bb.y2) / 2;
@@ -92,6 +80,24 @@ function hitHandle(a: Annotation, x: number, y: number): HandleType {
   return "none";
 }
 
+// テキストを枠内で折り返して描画
+function drawWrappedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): number {
+  const lines: string[] = [];
+  let currentLine = "";
+  for (const char of text) {
+    if (char === "\n") { lines.push(currentLine); currentLine = ""; continue; }
+    const test = currentLine + char;
+    if (ctx.measureText(test).width > maxWidth && currentLine.length > 0) {
+      lines.push(currentLine); currentLine = char;
+    } else {
+      currentLine = test;
+    }
+  }
+  lines.push(currentLine);
+  lines.forEach((line, i) => ctx.fillText(line, x, y + i * lineHeight));
+  return lines.length;
+}
+
 export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsChange, onSave, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,30 +110,27 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [selId, setSelId] = useState<string | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [cvs, setCvs] = useState({ width: 0, height: 0 });
+  // テキスト編集
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
-  const [textPos, setTextPos] = useState<{ x: number; y: number } | null>(null);
-  const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
-  const [textBoxed, setTextBoxed] = useState(false);
-  const [textBgColor, setTextBgColor] = useState("");
-  const [fontSize, setFontSize] = useState(18);
+  const [fontSize, setFontSize] = useState(16);
 
   const sel = anns.find((a) => a.id === selId);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "Shift") setShiftHeld(true);
-      if ((e.key === "Delete" || e.key === "Backspace") && selId && !textPos && !editingTextId) {
-        setAnns((p) => p.filter((a) => a.id !== selId));
-        setSelId(null);
+      if ((e.key === "Delete" || e.key === "Backspace") && selId && !editingId) {
+        setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null);
       }
     };
     const up = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false); };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
-  }, [selId, textPos, editingTextId]);
+  }, [selId, editingId]);
 
   useEffect(() => {
     const img = new Image();
@@ -162,26 +165,38 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       ctx.stroke();
     } else if (a.type === "rectangle" && a.width !== undefined && a.height !== undefined) {
       ctx.beginPath(); ctx.strokeRect(a.x, a.y, a.width, a.height);
-    } else if (a.type === "text" && a.text) {
-      const fs = a.fontSize || 18;
-      ctx.font = `bold ${fs}px sans-serif`;
-      const m = ctx.measureText(a.text);
-      const pad = 5;
-      if (a.boxed || a.bgColor) {
-        ctx.fillStyle = a.bgColor || "rgba(255,255,255,0.85)";
-        ctx.fillRect(a.x - pad, a.y - fs - pad, m.width + pad * 2, fs + pad * 2);
-        if (a.boxed) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.strokeRect(a.x - pad, a.y - fs - pad, m.width + pad * 2, fs + pad * 2); }
+    } else if (a.type === "text") {
+      const fs = a.fontSize || 16;
+      const w = a.width || 120;
+      const h = a.height || 30;
+      const pad = 6;
+      // 背景
+      if (a.bgColor) {
+        ctx.fillStyle = a.bgColor;
+        ctx.fillRect(a.x, a.y, w, h);
       }
-      ctx.fillStyle = c; ctx.font = `bold ${fs}px sans-serif`; ctx.fillText(a.text, a.x, a.y);
+      // 枠線
+      if (a.boxed) {
+        ctx.strokeStyle = c; ctx.lineWidth = 1.5;
+        ctx.strokeRect(a.x, a.y, w, h);
+      }
+      // テキスト
+      ctx.fillStyle = c;
+      ctx.font = `bold ${fs}px sans-serif`;
+      ctx.textBaseline = "top";
+      if (a.text) {
+        drawWrappedText(ctx, a.text, a.x + pad, a.y + pad, w - pad * 2, fs * 1.3);
+      }
+      ctx.textBaseline = "alphabetic";
     }
 
+    // 選択表示
     if (isSel) {
       const handles = getHandles(a);
-      // 選択枠
       if (a.type !== "arrow") {
         const bb = getBBox(a);
         ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
-        ctx.strokeRect(bb.x1 - 3, bb.y1 - 3, bb.x2 - bb.x1 + 6, bb.y2 - bb.y1 + 6);
+        ctx.strokeRect(bb.x1 - 2, bb.y1 - 2, bb.x2 - bb.x1 + 4, bb.y2 - bb.y1 + 4);
         ctx.setLineDash([]);
       }
       handles.forEach((h) => {
@@ -200,26 +215,21 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     anns.forEach((a) => drawAnn(ctx, a, a.id === selId));
 
     // 描画プレビュー
-    if (handle === "none" && startPos && currentPos && tool !== "select" && tool !== "text") {
+    if (handle === "none" && startPos && currentPos && tool !== "select") {
       ctx.setLineDash([6, 3]); ctx.strokeStyle = color; ctx.lineWidth = lineWidth;
       if (tool === "circle") {
         let rx = Math.abs(currentPos.x - startPos.x) / 2, ry = Math.abs(currentPos.y - startPos.y) / 2;
         if (shiftHeld) { const r = Math.max(rx, ry); rx = r; ry = r; }
         if (rx > 2 || ry > 2) { ctx.beginPath(); ctx.ellipse((startPos.x + currentPos.x) / 2, (startPos.y + currentPos.y) / 2, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); }
       } else if (tool === "arrow") {
-        const hl = 12 + lineWidth * 2;
-        const ang = Math.atan2(currentPos.y - startPos.y, currentPos.x - startPos.x);
         ctx.beginPath(); ctx.moveTo(startPos.x, startPos.y); ctx.lineTo(currentPos.x, currentPos.y); ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(currentPos.x, currentPos.y);
-        ctx.lineTo(currentPos.x - hl * Math.cos(ang - Math.PI / 6), currentPos.y - hl * Math.sin(ang - Math.PI / 6));
-        ctx.moveTo(currentPos.x, currentPos.y);
-        ctx.lineTo(currentPos.x - hl * Math.cos(ang + Math.PI / 6), currentPos.y - hl * Math.sin(ang + Math.PI / 6));
-        ctx.stroke();
       } else if (tool === "rectangle") {
         let w = currentPos.x - startPos.x, h = currentPos.y - startPos.y;
         if (shiftHeld) { const s = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w) * s; h = Math.sign(h) * s; }
         ctx.strokeRect(startPos.x, startPos.y, w, h);
+      } else if (tool === "text") {
+        ctx.strokeStyle = "#0088ff";
+        ctx.strokeRect(startPos.x, startPos.y, currentPos.x - startPos.x, currentPos.y - startPos.y);
       }
       ctx.setLineDash([]);
     }
@@ -236,15 +246,13 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
     const p = pos(e);
-    if (tool === "text" && !editingTextId) { setTextPos(p); return; }
+    if (editingId) return; // テキスト編集中はキャンバス操作しない
 
     if (tool === "select") {
-      // ハンドルチェック
       if (sel) {
         const h = hitHandle(sel, p.x, p.y);
         if (h !== "none") { setHandle(h); setStartPos(p); setCurrentPos(p); return; }
       }
-      // 図形選択
       for (let i = anns.length - 1; i >= 0; i--) {
         if (hitTestShape(anns[i], p.x, p.y)) {
           setSelId(anns[i].id); setHandle("move"); setStartPos(p); setCurrentPos(p); return;
@@ -252,6 +260,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       }
       setSelId(null); return;
     }
+
+    // 描画ツール
     setStartPos(p); setCurrentPos(p); setHandle("none"); setSelId(null);
   };
 
@@ -259,7 +269,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     const p = pos(e);
     for (let i = anns.length - 1; i >= 0; i--) {
       if (anns[i].type === "text" && hitTestShape(anns[i], p.x, p.y)) {
-        setEditingTextId(anns[i].id);
+        setEditingId(anns[i].id);
         setTextInput(anns[i].text || "");
         setSelId(anns[i].id);
         setTool("select");
@@ -268,7 +278,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
   };
 
-  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleMoveEvt = (e: React.MouseEvent | React.TouchEvent) => {
     const p = pos(e);
     setCurrentPos(p);
     if (!startPos) return;
@@ -284,14 +294,12 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       }));
       setStartPos(p);
     }
-
     if ((handle === "start" || handle === "end") && selId) {
       setAnns((prev) => prev.map((a) => {
         if (a.id !== selId) return a;
         return handle === "start" ? { ...a, x: p.x, y: p.y } : { ...a, endX: p.x, endY: p.y };
       }));
     }
-
     if (handle !== "none" && handle !== "move" && handle !== "start" && handle !== "end" && selId) {
       setAnns((prev) => prev.map((a) => {
         if (a.id !== selId) return a;
@@ -308,12 +316,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           if (handle.includes("e")) x2 = x1 + s; else x1 = x2 - s;
           if (handle.includes("s")) y2 = y1 + s; else y1 = y2 - s;
         }
-
         if (a.type === "circle") {
-          const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
-          return { ...a, x: cx, y: cy, radiusX: Math.abs(x2 - x1) / 2, radiusY: Math.abs(y2 - y1) / 2 };
+          return { ...a, x: (x1 + x2) / 2, y: (y1 + y2) / 2, radiusX: Math.abs(x2 - x1) / 2, radiusY: Math.abs(y2 - y1) / 2 };
         }
-        if (a.type === "rectangle") {
+        if (a.type === "rectangle" || a.type === "text") {
           return { ...a, x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
         }
         return a;
@@ -324,7 +330,6 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const handleEnd = (e: React.MouseEvent | React.TouchEvent) => {
     if (handle !== "none") { setHandle("none"); setStartPos(null); setCurrentPos(null); return; }
     if (!startPos || !currentPos) { setStartPos(null); setCurrentPos(null); return; }
-
     const ep = pos(e);
     const id = Date.now().toString();
 
@@ -344,24 +349,37 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       let w = ep.x - startPos.x, h = ep.y - startPos.y;
       if (shiftHeld) { const s = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w) * s; h = Math.sign(h) * s; }
       if (Math.abs(w) > 5 || Math.abs(h) > 5) {
-        setAnns((p) => [...p, { id, type: "rectangle", x: startPos.x, y: startPos.y, width: w, height: h, color, lineWidth }]);
+        setAnns((p) => [...p, { id, type: "rectangle", x: Math.min(startPos.x, ep.x), y: Math.min(startPos.y, ep.y), width: Math.abs(w), height: Math.abs(h), color, lineWidth }]);
         setSelId(id); setTool("select");
       }
+    } else if (tool === "text") {
+      // テキストボックス: ドラッグで領域を作成 → テキスト入力
+      const w = Math.abs(ep.x - startPos.x);
+      const h = Math.abs(ep.y - startPos.y);
+      const bw = Math.max(w, 80);
+      const bh = Math.max(h, 30);
+      const bx = Math.min(startPos.x, ep.x);
+      const by = Math.min(startPos.y, ep.y);
+      setAnns((p) => [...p, { id, type: "text", x: bx, y: by, width: bw, height: bh, text: "", color, lineWidth, fontSize, boxed: false, bgColor: undefined }]);
+      setSelId(id);
+      setEditingId(id);
+      setTextInput("");
+      setTool("select");
     }
     setStartPos(null); setCurrentPos(null);
   };
 
-  const addText = () => {
-    if (!textInput.trim()) return;
-    if (editingTextId) {
-      setAnns((p) => p.map((a) => a.id === editingTextId ? { ...a, text: textInput } : a));
-      setEditingTextId(null);
-    } else if (textPos) {
-      const id = Date.now().toString();
-      setAnns((p) => [...p, { id, type: "text", x: textPos.x, y: textPos.y, text: textInput, color, lineWidth, fontSize, boxed: textBoxed, bgColor: textBgColor || undefined }]);
-      setSelId(id); setTool("select");
+  const finishEdit = () => {
+    if (editingId) {
+      if (textInput.trim()) {
+        setAnns((p) => p.map((a) => a.id === editingId ? { ...a, text: textInput } : a));
+      } else {
+        // 空テキストなら削除
+        setAnns((p) => p.filter((a) => a.id !== editingId));
+        setSelId(null);
+      }
+      setEditingId(null); setTextInput("");
     }
-    setTextInput(""); setTextPos(null);
   };
 
   const updateSel = (patch: Partial<Annotation>) => {
@@ -370,7 +388,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleSave = () => {
-    setSelId(null); setEditingTextId(null);
+    finishEdit(); setSelId(null);
     setTimeout(() => {
       const canvas = canvasRef.current;
       if (canvas && image) {
@@ -396,37 +414,40 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       <div className="flex flex-wrap items-center justify-between px-1.5 py-1 bg-gray-900 gap-1">
         <div className="flex gap-0.5 flex-wrap items-center">
           {allTools.map((t) => (
-            <button key={t.id} onClick={() => { setTool(t.id); if (t.id !== "select") setSelId(null); setEditingTextId(null); }}
+            <button key={t.id} onClick={() => { finishEdit(); setTool(t.id); if (t.id !== "select") setSelId(null); }}
               className={`px-2 py-1.5 rounded text-xs font-medium ${tool === t.id ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
               {t.label}
             </button>
           ))}
           <span className="w-px h-5 bg-gray-600 mx-1" />
           {COLORS.map((c) => (
-            <button key={c.v} onClick={() => setColor(c.v)}
+            <button key={c.v} onClick={() => { setColor(c.v); if (selId) updateSel({ color: c.v }); }}
               className={`w-5 h-5 rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
               style={{ backgroundColor: c.v }} title={c.l} />
           ))}
           <span className="w-px h-5 bg-gray-600 mx-1" />
-          <input type="range" min={2} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-14 accent-blue-500" />
+          <input type="range" min={1} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-14 accent-blue-500" />
           <span className="text-gray-400 text-xs">{lineWidth}px</span>
         </div>
         <div className="flex gap-1">
-          {selId && <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }} className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">削除</button>}
+          {selId && <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); setEditingId(null); }} className="px-2 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">削除</button>}
           <button onClick={() => { setAnns((p) => p.slice(0, -1)); setSelId(null); }} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">↩</button>
           <button onClick={handleSave} className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">保存</button>
           <button onClick={onClose} className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">✕</button>
         </div>
       </div>
 
-      {/* テキスト選択時のプロパティ */}
-      {sel?.type === "text" && tool === "select" && !editingTextId && (
+      {/* テキスト選択時のプロパティパネル */}
+      {sel?.type === "text" && tool === "select" && (
         <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
-          <button onClick={() => { setEditingTextId(selId!); setTextInput(sel.text || ""); }}
-            className="px-2 py-1 bg-blue-600 text-white rounded text-xs">文字を編集</button>
+          {!editingId && (
+            <button onClick={() => { setEditingId(selId!); setTextInput(sel.text || ""); }}
+              className="px-2 py-1 bg-blue-600 text-white rounded text-xs">文字を編集</button>
+          )}
           <span className="text-gray-400 text-xs">サイズ:</span>
-          <input type="range" min={12} max={36} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-16 accent-blue-500" />
-          <span className="text-gray-300 text-xs">{sel.fontSize || 18}px</span>
+          <input type="range" min={10} max={40} value={sel.fontSize || 16}
+            onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-16 accent-blue-500" />
+          <span className="text-gray-300 text-xs">{sel.fontSize || 16}px</span>
           <button onClick={() => updateSel({ boxed: !sel.boxed })}
             className={`px-2 py-1 rounded text-xs ${sel.boxed ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-400"}`}>
             枠{sel.boxed ? "ON" : "OFF"}
@@ -434,37 +455,32 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           <span className="text-gray-400 text-xs">背景:</span>
           {BG_COLORS.map((bg) => (
             <button key={bg.l} onClick={() => updateSel({ bgColor: bg.v || undefined })}
-              className={`px-2 py-1 rounded text-xs border ${(sel.bgColor || "") === bg.v ? "border-blue-400 bg-gray-600 text-white" : "border-gray-600 text-gray-400"}`}>
+              className={`px-1.5 py-0.5 rounded text-xs border ${(sel.bgColor || "") === bg.v ? "border-blue-400 bg-gray-600 text-white" : "border-gray-600 text-gray-400"}`}>
               {bg.l}
             </button>
           ))}
         </div>
       )}
 
-      {/* テキスト入力/編集ダイアログ */}
-      {(textPos || editingTextId) && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-white rounded-xl shadow-lg p-3 flex flex-col gap-2">
-          <div className="flex gap-2">
-            <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="テキストを入力..."
-              className="px-3 py-2 border rounded-lg text-sm w-48" autoFocus onKeyDown={(e) => e.key === "Enter" && addText()} />
-            <button onClick={addText} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">{editingTextId ? "更新" : "追加"}</button>
-            <button onClick={() => { setTextPos(null); setEditingTextId(null); setTextInput(""); }} className="px-3 py-2 bg-gray-200 rounded-lg text-sm">取消</button>
+      {/* ヒント */}
+      <div className="px-2 py-0.5 bg-gray-800 text-gray-500 text-xs text-center hidden sm:block">
+        {tool === "select" ? "クリックで選択 → ドラッグで移動 → ハンドル(○)でサイズ変更 → テキストはダブルクリックで編集" :
+         tool === "text" ? "ドラッグでテキストボックスの領域を作成 → テキストを入力" :
+         tool === "circle" ? "ドラッグで楕円 / Shift+ドラッグで正円" :
+         tool === "rectangle" ? "ドラッグで長方形 / Shift+ドラッグで正方形" :
+         "ドラッグで矢印を描画"}
+      </div>
+
+      {/* テキスト入力ダイアログ */}
+      {editingId && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-white rounded-xl shadow-lg p-3 flex gap-2">
+          <textarea value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="テキストを入力..."
+            className="px-3 py-2 border rounded-lg text-sm w-56 h-20 resize-none" autoFocus
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finishEdit(); } }} />
+          <div className="flex flex-col gap-1">
+            <button onClick={finishEdit} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm">確定</button>
+            <button onClick={() => { setEditingId(null); setTextInput(""); }} className="px-3 py-2 bg-gray-200 rounded-lg text-sm">取消</button>
           </div>
-          {!editingTextId && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">サイズ:</span>
-              <input type="range" min={12} max={36} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-20 accent-blue-500" />
-              <span className="text-xs">{fontSize}px</span>
-              <button onClick={() => setTextBoxed(!textBoxed)} className={`px-2 py-0.5 rounded text-xs ${textBoxed ? "bg-blue-600 text-white" : "bg-gray-200"}`}>枠{textBoxed ? "ON" : "OFF"}</button>
-              <span className="text-xs text-gray-500">背景:</span>
-              {BG_COLORS.map((bg) => (
-                <button key={bg.l} onClick={() => setTextBgColor(bg.v)}
-                  className={`px-1.5 py-0.5 rounded text-xs border ${textBgColor === bg.v ? "border-blue-400 bg-blue-50" : "border-gray-300"}`}>
-                  {bg.l}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -472,9 +488,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         {cvs.width > 0 && (
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`touch-none ${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
-            onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd}
+            onMouseDown={handleStart} onMouseMove={handleMoveEvt} onMouseUp={handleEnd}
             onDoubleClick={handleDblClick}
-            onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} />
+            onTouchStart={handleStart} onTouchMove={handleMoveEvt} onTouchEnd={handleEnd} />
         )}
       </div>
     </div>
