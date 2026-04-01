@@ -461,33 +461,6 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
-      {/* テキスト選択時プロパティ */}
-      {sel?.type === "text" && (
-        <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 bg-yellow-900 border-t border-yellow-700">
-          <span className="text-yellow-200 text-xs font-bold">文字の設定:</span>
-          <span className="text-yellow-300 text-xs">サイズ:</span>
-          <input type="range" min={10} max={48} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-20 accent-yellow-400" />
-          <span className="text-yellow-200 text-xs font-bold">{sel.fontSize || 18}px</span>
-          <span className="text-yellow-300 text-xs">色:</span>
-          {COLORS.map((c) => (
-            <button key={c.v} onClick={() => updateSel({ color: c.v })}
-              className={`w-5 h-5 rounded-full border-2 ${(sel.color || "#FF0000") === c.v ? "border-yellow-300 scale-110" : "border-gray-600"}`}
-              style={{ backgroundColor: c.v }} />
-          ))}
-          <button onClick={() => updateSel({ boxed: !sel.boxed })}
-            className={`px-2 py-1 rounded text-xs font-bold ${sel.boxed ? "bg-yellow-400 text-black" : "bg-gray-700 text-gray-400"}`}>
-            枠{sel.boxed ? "ON" : "OFF"}
-          </button>
-          <span className="text-yellow-300 text-xs">背景:</span>
-          {BG_COLORS.map((bg) => (
-            <button key={bg.l} onClick={() => updateSel({ bgColor: bg.v || undefined })}
-              className={`px-2 py-1 rounded text-xs border font-bold ${(sel.bgColor || "") === bg.v ? "border-yellow-300 bg-yellow-800 text-yellow-200" : "border-gray-600 text-gray-400"}`}>
-              {bg.l}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* 丸・四角選択時プロパティ */}
       {sel && (sel.type === "circle" || sel.type === "rectangle") && (
         <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
