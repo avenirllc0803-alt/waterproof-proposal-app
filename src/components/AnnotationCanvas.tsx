@@ -467,8 +467,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       )}
 
-      {/* 丸・四角選択時プロパティ */}
-      {sel && (sel.type === "circle" || sel.type === "rectangle") && (
+      {/* 丸・四角・矢印選択時プロパティ */}
+      {sel && (sel.type === "circle" || sel.type === "rectangle" || sel.type === "arrow") && (
         <div className="flex flex-wrap items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700">
           <span className="text-gray-400 text-xs">色:</span>
           {COLORS.map((c) => (
