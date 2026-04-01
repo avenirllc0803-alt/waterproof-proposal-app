@@ -355,10 +355,13 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
     const p = getPos(e);
     if (tool === "text") {
-      // テキスト追加
-      const id = Date.now().toString();
-      setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: "", color, fontSize, boxed: false }]);
-      setSelId(id);
+      // テキスト追加 → すぐにプロンプトで入力
+      const input = prompt("テキストを入力してください:");
+      if (input && input.trim()) {
+        const id = Date.now().toString();
+        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: input.trim(), color, fontSize, boxed: false }]);
+        setSelId(id);
+      }
       setTool("select");
       return;
     }
