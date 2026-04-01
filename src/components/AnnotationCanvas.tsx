@@ -139,7 +139,6 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate, onDelete, locked }: 
 
   return (
     <div
-      data-ann-id={ann.id}
       style={{
         position: "absolute", left: ann.x, top: ann.y, minWidth: 40,
         cursor: editing ? "text" : dragging ? "grabbing" : "grab",
@@ -161,16 +160,13 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate, onDelete, locked }: 
       )}
       {editing ? (
         <input
-          type="search" value={text} onChange={(e) => setText(e.target.value)}
+          type="text" value={text} onChange={(e) => setText(e.target.value)}
           onBlur={finishEdit}
           onKeyDown={(e) => { if (e.key === "Enter") finishEdit(); }}
           autoFocus
-          autoComplete="off"
-          data-lpignore="true"
-          data-form-type="other"
           style={{ fontSize: fs, fontWeight: "bold", color: ann.color || "#FF0000",
             border: "none", outline: "2px solid #0088ff", background: "rgba(255,255,255,0.9)",
-            padding: "2px 4px", minWidth: 60, borderRadius: 3, WebkitAppearance: "none",
+            padding: "2px 4px", minWidth: 60, borderRadius: 3,
           }}
         />
       ) : (
@@ -386,16 +382,14 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
     const p = getPos(e);
     if (tool === "text") {
-      // タップ位置にテキスト注釈を即座に作成し、編集モードで開始
-      const id = Date.now().toString();
-      setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: "", color, fontSize, boxed: false }]);
-      setSelId(id);
-      setTool("select");
-      // 少し遅延してから編集モードにする（TextOverlayのマウント待ち）
-      setTimeout(() => {
-        const el = document.querySelector(`[data-ann-id="${id}"]`) as HTMLElement;
-        if (el) el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-      }, 100);
+      // 画面タップでpromptダイアログを表示して入力
+      const text = window.prompt("テキストを入力してください");
+      if (text && text.trim()) {
+        const id = Date.now().toString();
+        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: text.trim(), color, fontSize, boxed: false }]);
+        setSelId(id);
+        setTool("select");
+      }
       return;
     }
     if (tool === "select") {
@@ -551,9 +545,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   });
 
   return (
-    <div className="bg-black z-50 flex flex-col" style={{ position: "fixed", left: 0, right: 0, top: 0, bottom: 0, height: "100dvh", overscrollBehavior: "none" }}>
+    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ overscrollBehavior: "none" }}>
       {/* ツールバー 上段: ツール選択 + アクションボタン */}
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1 flex-shrink-0" style={{ minHeight: 48, touchAction: "manipulation", paddingTop: 4 }}>
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1" style={{ minHeight: 44, touchAction: "manipulation" }}>
         <div className="flex gap-1 items-center flex-wrap">
           <button {...penBtn(() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); })}
             className={`rounded text-sm font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
@@ -662,7 +656,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       {/* テキストモード時のガイド表示 */}
       {tool === "text" && !imageMode && (
-        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center">
+        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center" style={{ touchAction: "manipulation" }}>
           <span className="text-yellow-200 text-sm font-bold">画面をタップして文字を配置</span>
         </div>
       )}
