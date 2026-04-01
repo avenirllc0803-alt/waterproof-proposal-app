@@ -94,7 +94,7 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate, onDelete, locked }: 
     if (text.trim()) onUpdate({ text });
   };
 
-  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     e.stopPropagation();
     if (editing || locked) return;
 
@@ -348,17 +348,17 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
   useEffect(() => { drawAll(); }, [drawAll]);
 
-  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+  const getPos = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent | React.PointerEvent) => {
     const c = canvasRef.current; if (!c) return { x: 0, y: 0 };
     const r = c.getBoundingClientRect();
     if ("touches" in e) {
       const t = e.touches.length > 0 ? e.touches[0] : e.changedTouches[0];
       return { x: t.clientX - r.left, y: t.clientY - r.top };
     }
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    return { x: (e as React.MouseEvent).clientX - r.left, y: (e as React.MouseEvent).clientY - r.top };
   };
 
-  const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     if (imageMode) return; // 画像操作モード中は描画しない
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
@@ -395,7 +395,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     setStartPos(p); setCurrentPos(p); setHandle("none"); setSelId(null);
   };
 
-  const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     if (imageMode) return;
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
@@ -437,7 +437,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
   };
 
-  const handleCanvasUp = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleCanvasUp = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     if (handle !== "none") { setHandle("none"); setStartPos(null); setCurrentPos(null); return; }
     if (!startPos || !currentPos) { setStartPos(null); setCurrentPos(null); return; }
     const ep = getPos(e);
@@ -583,14 +583,29 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       )}
 
       {/* キャンバス + テキストオーバーレイ */}
-      <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2">
+      <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2"
+        style={{ touchAction: imageMode ? "auto" : "none" }}>
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
             style={{ position: "absolute", top: 0, left: 0, touchAction: imageMode ? "auto" : "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
-            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp} />
+            onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp}
+            onPointerDown={handleCanvasDown} onPointerMove={handleCanvasMove} onPointerUp={handleCanvasUp} />
           {/* テキスト注釈はHTML要素で表示 */}
+          {/* 図形の×削除ボタン */}
+          {selId && !imageMode && sel && sel.type !== "text" && (() => {
+            const bb = getBBox(sel);
+            return (
+              <button
+                onClick={(e) => { e.stopPropagation(); setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }}
+                style={{ position: "absolute", left: bb.x2 - 4, top: bb.y1 - 16, width: 28, height: 28, borderRadius: 14,
+                  background: "#ff3333", color: "white", border: "2px solid white", fontSize: 16, fontWeight: "bold",
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 25 }}>
+                ×
+              </button>
+            );
+          })()}
           {textAnns.map((a) => (
             <TextOverlay key={a.id} ann={a} isSelected={a.id === selId} locked={imageMode}
               onSelect={() => { if (!imageMode) { setSelId(a.id); setTool("select"); } }}
@@ -615,15 +630,6 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       )}
 
-      {/* 図形選択時: 削除ボタン（画面下部） */}
-      {selId && !imageMode && sel?.type !== "text" && (
-        <div className="flex items-center justify-center gap-3 px-2 py-2 bg-gray-800 border-t border-gray-700">
-          <button onClick={() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); }}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700">
-            選択した図形を削除
-          </button>
-        </div>
-      )}
     </div>
   );
 }
