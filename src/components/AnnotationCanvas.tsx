@@ -208,8 +208,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     const preventScroll = (e: TouchEvent) => {
       // 画像操作モード中のcontainer内ピンチは許可
       if (imageMode && containerRef.current?.contains(e.target as Node) && e.touches.length === 2) return;
-      // テキスト入力欄は通常操作許可
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      const el = e.target as HTMLElement;
+      // ボタン・入力欄などUI要素は通常操作許可
+      if (el?.tagName === "INPUT" || el?.tagName === "BUTTON" || el?.tagName === "SELECT" || el?.tagName === "TEXTAREA" || el?.closest?.("button")) return;
       // キャンバス内のタッチ操作（図形描画・移動等）は許可
       if (wrapperRef.current?.contains(e.target as Node)) return;
       e.preventDefault();
