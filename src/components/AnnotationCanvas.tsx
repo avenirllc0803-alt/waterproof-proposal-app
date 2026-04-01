@@ -82,6 +82,8 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(ann.text || "");
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number; annX: number; annY: number } | null>(null);
   const fs = ann.fontSize || 18;
 
   useEffect(() => { setText(ann.text || ""); }, [ann.text]);
@@ -91,17 +93,45 @@ function TextOverlay({ ann, isSelected, onSelect, onUpdate }: {
     if (text.trim()) onUpdate({ text });
   };
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (editing) return;
+    onSelect();
+    dragStart.current = { x: e.clientX, y: e.clientY, annX: ann.x, annY: ann.y };
+    setDragging(true);
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!dragStart.current) return;
+      const dx = ev.clientX - dragStart.current.x;
+      const dy = ev.clientY - dragStart.current.y;
+      onUpdate({ x: dragStart.current.annX + dx, y: dragStart.current.annY + dy });
+    };
+    const handleMouseUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // 枠線: boxedの時だけ表示。選択時は青枠。両方同時にはしない。
+  const borderStyle = isSelected
+    ? "2px solid #0088ff"
+    : ann.boxed ? `2px solid ${ann.color || "#FF0000"}` : "1px dashed transparent";
+
   return (
     <div
-      style={{ position: "absolute", left: ann.x, top: ann.y, minWidth: 40, cursor: editing ? "text" : "move",
-        border: isSelected ? "2px solid #0088ff" : "1px dashed transparent",
+      style={{
+        position: "absolute", left: ann.x, top: ann.y, minWidth: 40,
+        cursor: editing ? "text" : dragging ? "grabbing" : "grab",
+        border: borderStyle,
         backgroundColor: ann.bgColor || "transparent",
-        outline: ann.boxed ? `2px solid ${ann.color || "#FF0000"}` : "none",
         padding: 4, borderRadius: 3, zIndex: editing ? 20 : 10,
       }}
-      onClick={(e) => { e.stopPropagation(); onSelect(); }}
       onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
-      onMouseDown={(e) => { e.stopPropagation(); onSelect(); }}
+      onMouseDown={handleMouseDown}
     >
       {editing ? (
         <input
@@ -481,7 +511,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       </div>
 
       {/* キャンバス + テキストオーバーレイ */}
-      <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-auto">
+      <div ref={containerRef} className="flex-1 overflow-auto flex items-start justify-center p-2">
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`touch-none ${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
