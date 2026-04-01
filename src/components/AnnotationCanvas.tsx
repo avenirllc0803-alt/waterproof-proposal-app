@@ -210,6 +210,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       if (imageMode && containerRef.current?.contains(e.target as Node) && e.touches.length === 2) return;
       // テキスト入力欄は通常操作許可
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      // キャンバス内のタッチ操作（図形描画・移動等）は許可
+      if (wrapperRef.current?.contains(e.target as Node)) return;
       e.preventDefault();
     };
     document.body.style.overflow = "hidden";
