@@ -542,9 +542,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   });
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ overscrollBehavior: "none" }}>
+    <div className="bg-black z-50 flex flex-col" style={{ position: "fixed", left: 0, right: 0, top: 0, bottom: 0, height: "100dvh", overscrollBehavior: "none" }}>
       {/* ツールバー 上段: ツール選択 + アクションボタン */}
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1" style={{ minHeight: 44, touchAction: "manipulation" }}>
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1 flex-shrink-0" style={{ minHeight: 48, touchAction: "manipulation", paddingTop: 4 }}>
         <div className="flex gap-1 items-center flex-wrap">
           <button {...penBtn(() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); })}
             className={`rounded text-sm font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
