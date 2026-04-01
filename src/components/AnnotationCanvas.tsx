@@ -186,6 +186,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
   const [fontSize, setFontSize] = useState(18);
+  const [pendingText, setPendingText] = useState("");
   const [zoom, setZoom] = useState(100);
   const baseScale = useRef(1);
 
@@ -355,14 +356,13 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     }
     const p = getPos(e);
     if (tool === "text") {
-      // テキスト追加 → すぐにプロンプトで入力
-      const input = prompt("テキストを入力してください:");
-      if (input && input.trim()) {
+      // 入力欄のテキストを配置
+      if (pendingText.trim()) {
         const id = Date.now().toString();
-        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: input.trim(), color, fontSize, boxed: false }]);
+        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: pendingText.trim(), color, fontSize, boxed: false }]);
         setSelId(id);
+        setPendingText("");
       }
-      setTool("select");
       return;
     }
     if (tool === "select") {
@@ -559,12 +559,27 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       )}
 
-      {/* ヒント */}
-      <div className="px-2 py-0.5 bg-gray-800 text-gray-500 text-xs text-center hidden sm:block">
-        {tool === "select" ? "図形をクリックで選択・移動。テキストはダブルクリックで編集。" :
-         tool === "text" ? "クリックした場所にテキストを追加。ダブルクリックで編集。" :
-         "ドラッグで図形を描く。Shiftで正円/正方形。"}
-      </div>
+      {/* テキスト入力欄（文字ツール選択時に表示） */}
+      {tool === "text" && (
+        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700">
+          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">文字:</span>
+          <input
+            type="text" value={pendingText} onChange={(e) => setPendingText(e.target.value)}
+            placeholder="ここに入力してから画面をタップ"
+            className="flex-1 px-3 py-2 rounded-lg text-base border-2 border-yellow-400 bg-white"
+            autoFocus
+          />
+          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">サイズ:</span>
+          <input type="range" min={10} max={60} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-20 accent-yellow-400" />
+          <span className="text-yellow-200 text-sm font-bold">{fontSize}px</span>
+        </div>
+      )}
+      {tool !== "text" && (
+        <div className="px-2 py-0.5 bg-gray-800 text-gray-500 text-xs text-center hidden sm:block">
+          {tool === "select" ? "図形をクリックで選択・移動。テキストはダブルクリックで編集。" :
+           "ドラッグで図形を描く。Shiftで正円/正方形。"}
+        </div>
+      )}
 
       {/* キャンバス + テキストオーバーレイ */}
       <div ref={containerRef} className="flex-1 overflow-auto flex items-center justify-center p-2">
