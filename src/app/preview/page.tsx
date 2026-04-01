@@ -65,10 +65,17 @@ export default function PreviewPage() {
         }
       }
 
-      const fileName = customerInfo
-        ? `提案書_${customerInfo.propertyName}_${customerInfo.date}.pdf`
-        : "提案書.pdf";
-      pdf.save(fileName);
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      // iOS Safari対応: 新しいタブで開く（ダウンロードまたは「ファイルに保存」で保存可能）
+      const w = window.open(url, "_blank");
+      if (!w) {
+        // ポップアップブロック時はリンクで対応
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = customerInfo ? `提案書_${customerInfo.propertyName}_${customerInfo.date}.pdf` : "提案書.pdf";
+        a.click();
+      }
     } catch (err) {
       console.error("PDF generation failed:", err);
       alert("PDF生成に失敗しました。もう一度お試しください。");

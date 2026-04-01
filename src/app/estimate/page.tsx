@@ -131,7 +131,15 @@ export default function EstimatePage() {
           heightLeft -= pageHeight;
         }
       }
-      pdf.save(`見積書_${form.propertyName}_${form.date}.pdf`);
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (!w) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `見積書_${form.propertyName}_${form.date}.pdf`;
+        a.click();
+      }
     } catch (err) {
       console.error("PDF generation failed:", err);
       alert("PDF生成に失敗しました。もう一度お試しください。");

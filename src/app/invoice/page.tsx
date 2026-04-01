@@ -90,7 +90,15 @@ export default function InvoicePage() {
           heightLeft -= pageHeight;
         }
       }
-      pdf.save(`請求書_${form.propertyName}_${form.date}.pdf`);
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (!w) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `請求書_${form.propertyName}_${form.date}.pdf`;
+        a.click();
+      }
     } catch (err) {
       console.error("PDF generation failed:", err);
       alert("PDF生成に失敗しました。");
