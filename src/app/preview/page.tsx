@@ -48,13 +48,21 @@ export default function PreviewPage() {
         format: "a4",
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const contentHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
 
-      if (contentHeight <= pageHeight) {
+      // A4余白: 上下左右15mm
+      const marginMm = 15;
+      const contentAreaW = pdfWidth - marginMm * 2;        // 180mm
+      const contentAreaH = pageHeight - marginMm * 2;      // 267mm
+
+      const scaleFactor = contentAreaW / canvas.width;      // canvas px → mm
+      const contentHeight = canvas.height * scaleFactor;
+
+      if (contentHeight <= contentAreaH) {
+        // 1ページに収まる
         const imgData = canvas.toDataURL("image/png");
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, contentHeight);
+        pdf.addImage(imgData, "PNG", marginMm, marginMm, contentAreaW, contentHeight);
       } else {
         // セクション境界を検出して、そこでページ分割する
         const sectionEls = element.querySelectorAll("[data-pdf-section]");
@@ -64,15 +72,13 @@ export default function PreviewPage() {
         const breakPoints: number[] = [0];
         sectionEls.forEach((el) => {
           const rect = el.getBoundingClientRect();
-          // セクション上端（コンテナ相対）をcanvas座標に変換
           const topInCanvas = (rect.top - containerRect.top) * h2cScale;
           breakPoints.push(Math.round(topInCanvas));
         });
-        // 最終端
         breakPoints.push(canvas.height);
 
-        const scaleFactor = pdfWidth / canvas.width;
-        const pageCanvasHeight = Math.floor(pageHeight / scaleFactor);
+        // 1ページに収まるcanvas高さ（余白を除いた領域）
+        const pageCanvasHeight = Math.floor(contentAreaH / scaleFactor);
 
         // セクション境界を使って最適なページ分割位置を決定
         const pageBreaks: { srcY: number; height: number }[] = [];
@@ -83,19 +89,16 @@ export default function PreviewPage() {
           const currentPageHeight = nextBreak - currentPageStart;
 
           if (currentPageHeight > pageCanvasHeight && i > 1 && breakPoints[i - 1] > currentPageStart) {
-            // このセクションを追加するとページを超える→前のセクション境界で切る
             const cutAt = breakPoints[i - 1];
             pageBreaks.push({ srcY: currentPageStart, height: cutAt - currentPageStart });
             currentPageStart = cutAt;
           }
-          // セクション単体がページより大きい場合はそのまま含める（避けられない）
         }
-        // 残りを最終ページとして追加
         if (currentPageStart < canvas.height) {
           pageBreaks.push({ srcY: currentPageStart, height: canvas.height - currentPageStart });
         }
 
-        // フォールバック: セクション境界が取れなかった場合は従来方式
+        // フォールバック
         if (pageBreaks.length === 0) {
           let srcY = 0;
           while (srcY < canvas.height) {
@@ -117,7 +120,8 @@ export default function PreviewPage() {
           const sliceMmHeight = slice.height * scaleFactor;
 
           if (pageNum > 0) pdf.addPage();
-          pdf.addImage(pageImgData, "PNG", 0, 0, pdfWidth, sliceMmHeight);
+          // 全ページ同じ余白で配置
+          pdf.addImage(pageImgData, "PNG", marginMm, marginMm, contentAreaW, sliceMmHeight);
         });
       }
 
@@ -221,7 +225,7 @@ export default function PreviewPage() {
           <div
             ref={previewRef}
             className="bg-white shadow-lg"
-            style={{ width: 794, padding: "56px 60px", boxSizing: "border-box" }}
+            style={{ width: 794, padding: "40px 48px", boxSizing: "border-box" }}
           >
             {/* Document Header */}
             <div style={{ borderBottom: "3px solid #1e3a5f", paddingBottom: 16, marginBottom: 24 }}>
