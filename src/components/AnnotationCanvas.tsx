@@ -400,12 +400,12 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if (imageMode) return; // 画像操作モード中は描画しない
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
       e.preventDefault();
     }
     const p = getPos(e);
+
     if (tool === "text") {
       // 画面タップでpromptダイアログを表示して入力
       const text = window.prompt("テキストを入力してください");
@@ -438,7 +438,6 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (imageMode) return;
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
       e.preventDefault();
@@ -590,14 +589,14 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       {/* ツールバー 上段: ツール選択 + アクションボタン */}
       <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1 flex-shrink-0" style={{ minHeight: 44, touchAction: "manipulation" }}>
         <div className="flex gap-1 items-center flex-wrap">
-          <button {...penBtn(() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); })}
+          <button {...penBtn(() => { setImageMode(!imageMode); })}
             className={`rounded text-sm font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
             style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
-            {imageMode ? "🔍操作中" : "🔍画像"}
+            {imageMode ? "📌固定中" : "📌固定"}
           </button>
-          {!imageMode && allTools.map((t) => (
+          {allTools.map((t) => (
             <button key={t.id} {...penBtn(() => { setTool(t.id); if (t.id !== "select") setSelId(null); })}
-              className={`rounded text-sm font-medium ${tool === t.id && !imageMode ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
+              className={`rounded text-sm font-medium ${tool === t.id ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
               style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
               {t.label}
             </button>
@@ -675,15 +674,15 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         <div ref={wrapperRef} style={{ position: "relative", width: cvs.width, height: cvs.height, flexShrink: 0 }}>
           <canvas ref={canvasRef} width={cvs.width} height={cvs.height}
             className={`${tool === "select" ? "cursor-default" : "cursor-crosshair"}`}
-            style={{ position: "absolute", top: 0, left: 0, touchAction: imageMode ? "auto" : "none" }}
+            style={{ position: "absolute", top: 0, left: 0, touchAction: "none" }}
             onMouseDown={handleCanvasDown} onMouseMove={handleCanvasMove} onMouseUp={handleCanvasUp}
             onTouchStart={handleCanvasDown} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasUp}
-            onPointerDown={(e) => { if (e.pointerType === "pen" && !imageMode) { handleCanvasDown(e as unknown as React.MouseEvent); } }}
-            onPointerMove={(e) => { if (e.pointerType === "pen" && !imageMode) { handleCanvasMove(e as unknown as React.MouseEvent); } }}
-            onPointerUp={(e) => { if (e.pointerType === "pen" && !imageMode) { handleCanvasUp(e as unknown as React.MouseEvent); } }} />
+            onPointerDown={(e) => { if (e.pointerType === "pen") { handleCanvasDown(e as unknown as React.MouseEvent); } }}
+            onPointerMove={(e) => { if (e.pointerType === "pen") { handleCanvasMove(e as unknown as React.MouseEvent); } }}
+            onPointerUp={(e) => { if (e.pointerType === "pen") { handleCanvasUp(e as unknown as React.MouseEvent); } }} />
           {/* テキスト注釈はHTML要素で表示 */}
           {/* 図形の×削除ボタン */}
-          {selId && !imageMode && sel && sel.type !== "text" && (() => {
+          {selId && sel && sel.type !== "text" && (() => {
             const bb = getBBox(sel);
             return (
               <button
@@ -696,8 +695,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
             );
           })()}
           {textAnns.map((a) => (
-            <TextOverlay key={a.id} ann={a} isSelected={a.id === selId} locked={imageMode}
-              onSelect={() => { if (!imageMode) { setSelId(a.id); setTool("select"); } }}
+            <TextOverlay key={a.id} ann={a} isSelected={a.id === selId} locked={false}
+              onSelect={() => { setSelId(a.id); if (!imageMode) setTool("select"); }}
               onUpdate={(patch) => setAnns((p) => p.map((x) => x.id === a.id ? { ...x, ...patch } : x))}
               onDelete={() => { setAnns((p) => p.filter((x) => x.id !== a.id)); setSelId(null); }} />
           ))}
@@ -705,7 +704,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       </div>
 
       {/* テキストモード時のガイド表示 */}
-      {tool === "text" && !imageMode && (
+      {tool === "text" && (
         <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center flex-shrink-0" style={{ touchAction: "manipulation" }}>
           <span className="text-yellow-200 text-sm font-bold">画面をタップして文字を配置</span>
         </div>
