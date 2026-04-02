@@ -215,91 +215,91 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      {/* Preview content */}
-      <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 p-4">
-        <div
-          ref={previewRef}
-          className="bg-white shadow-lg"
-          style={{ padding: "28px 32px", maxWidth: "210mm", margin: "0 auto" }}
-        >
-          {/* Document Header */}
-          <div className="border-b-3 border-blue-800 pb-3 mb-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-0.5">
-                  現場調査報告書
-                </h1>
-                <h2 className="text-base text-gray-700">
-                  {customerInfo.propertyName}
-                </h2>
-              </div>
-              <div className="text-right text-sm text-gray-600">
-                <p className="font-medium text-base">
-                  {customerInfo.companyName}
-                </p>
-                <p>
-                  作成日：{customerInfo.date.replace(/-/g, "/")}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2 bg-gray-50 rounded p-2.5 text-sm">
-              <span className="font-medium text-gray-600">提出先：</span>
-              <span className="text-gray-800">{customerInfo.customerName}</span>
-            </div>
-          </div>
-
-          {/* Sections */}
-          {sections.map((section, i) => {
-            const displayImage =
-              section.annotatedImageUrl || section.imageUrl;
-            return (
-              <div
-                key={section.id}
-                className="mb-3"
-                data-pdf-section
-                style={{ pageBreakInside: "avoid" }}
-              >
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-800 text-white text-xs font-bold rounded-full flex-shrink-0">
-                    {i + 1}
-                  </span>
-                  <h3 className="text-sm font-bold text-gray-800">
-                    {section.imageName || `調査箇所 ${i + 1}`}
-                  </h3>
+      {/* Preview content — A4固定幅(794px = 210mm@96dpi)、モバイルは縮小表示 */}
+      <div className="p-4 overflow-x-auto" style={{ display: "flex", justifyContent: "center" }}>
+        <div style={{ width: 794, minWidth: 794 }}>
+          <div
+            ref={previewRef}
+            className="bg-white shadow-lg"
+            style={{ width: 794, padding: "56px 60px", boxSizing: "border-box" }}
+          >
+            {/* Document Header */}
+            <div style={{ borderBottom: "3px solid #1e3a5f", paddingBottom: 16, marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h1 style={{ fontSize: 22, fontWeight: "bold", color: "#111", margin: 0 }}>
+                    現場調査報告書
+                  </h1>
+                  <h2 style={{ fontSize: 14, color: "#444", margin: "4px 0 0", fontWeight: "normal" }}>
+                    {customerInfo.propertyName}
+                  </h2>
                 </div>
+                <div style={{ textAlign: "right", fontSize: 12, color: "#666" }}>
+                  <p style={{ fontWeight: 600, fontSize: 14, margin: 0 }}>
+                    {customerInfo.companyName}
+                  </p>
+                  <p style={{ margin: "2px 0 0" }}>
+                    作成日：{customerInfo.date.replace(/-/g, "/")}
+                  </p>
+                </div>
+              </div>
+              <div style={{ marginTop: 12, background: "#f9fafb", borderRadius: 4, padding: "8px 12px", fontSize: 12 }}>
+                <span style={{ fontWeight: 600, color: "#666" }}>提出先：</span>
+                <span style={{ color: "#222" }}>{customerInfo.customerName}</span>
+              </div>
+            </div>
 
-                <div className="flex gap-3">
-                  {displayImage && (
-                    <div className="flex-shrink-0" style={{ width: "45%" }}>
-                      <img
-                        src={displayImage}
-                        alt={section.imageName}
-                        className="w-full rounded border border-gray-200"
-                        style={{ maxHeight: 180, objectFit: "contain", background: "#f9fafb" }}
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="bg-gray-50 rounded p-2.5 h-full">
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
-                        {section.description}
-                      </p>
+            {/* Sections */}
+            {sections.map((section, i) => {
+              const displayImage =
+                section.annotatedImageUrl || section.imageUrl;
+              return (
+                <div
+                  key={section.id}
+                  data-pdf-section
+                  style={{ marginBottom: 20, pageBreakInside: "avoid" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "#1e3a5f", color: "#fff", fontSize: 11, fontWeight: "bold", borderRadius: "50%", flexShrink: 0 }}>
+                      {i + 1}
+                    </span>
+                    <h3 style={{ fontSize: 14, fontWeight: "bold", color: "#222", margin: 0 }}>
+                      {section.imageName || `調査箇所 ${i + 1}`}
+                    </h3>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 16 }}>
+                    {displayImage && (
+                      <div style={{ flexShrink: 0, width: "46%" }}>
+                        <img
+                          src={displayImage}
+                          alt={section.imageName}
+                          style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 4, border: "1px solid #e5e7eb", background: "#f9fafb" }}
+                        />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ background: "#f9fafb", borderRadius: 4, padding: "10px 12px", height: "100%", boxSizing: "border-box" }}>
+                        <p style={{ fontSize: 11, color: "#444", whiteSpace: "pre-wrap", lineHeight: 1.7, margin: 0 }}>
+                          {section.description}
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  {i < sections.length - 1 && (
+                    <hr style={{ marginTop: 16, border: "none", borderTop: "1px solid #e5e7eb" }} />
+                  )}
                 </div>
+              );
+            })}
 
-                {i < sections.length - 1 && (
-                  <hr className="mt-3 border-gray-200" />
-                )}
-              </div>
-            );
-          })}
-
-          {/* Footer */}
-          <div className="mt-6 pt-3 border-t-2 border-gray-200 text-center text-xs text-gray-400" data-pdf-section>
-            <p>
-              本書は{customerInfo.companyName}が作成した現場調査報告書です。
-            </p>
+            {/* Footer */}
+            <div data-pdf-section style={{ marginTop: 32, paddingTop: 12, borderTop: "2px solid #e5e7eb", textAlign: "center", fontSize: 10, color: "#aaa" }}>
+              <p style={{ margin: 0 }}>
+                本書は{customerInfo.companyName}が作成した現場調査報告書です。
+              </p>
+            </div>
           </div>
         </div>
       </div>
