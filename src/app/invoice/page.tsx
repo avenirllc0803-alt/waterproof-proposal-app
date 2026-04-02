@@ -32,6 +32,8 @@ export default function InvoicePage() {
   const taxRate = 10;
 
   useEffect(() => {
+    // リロード検知: アプリ内遷移フラグがなければトップへ
+    if (!sessionStorage.getItem("__nav")) { router.replace("/"); return; }
     const fromEstimate = sessionStorage.getItem("invoiceFromEstimate");
     if (fromEstimate) {
       try {
@@ -56,7 +58,7 @@ export default function InvoicePage() {
       sessionStorage.removeItem("useInvoiceDemo");
       setStep("preview");
     }
-  }, []);
+  }, [router]);
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const tax = Math.floor(subtotal * (taxRate / 100));

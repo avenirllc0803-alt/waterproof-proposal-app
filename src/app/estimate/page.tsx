@@ -29,6 +29,8 @@ export default function EstimatePage() {
   const taxRate = 10;
 
   useEffect(() => {
+    // リロード検知: アプリ内遷移フラグがなければトップへ
+    if (!sessionStorage.getItem("__nav")) { router.replace("/"); return; }
     const isDemo = sessionStorage.getItem("useEstimateDemo");
     if (isDemo === "true") {
       setForm({
@@ -43,7 +45,7 @@ export default function EstimatePage() {
       sessionStorage.removeItem("useEstimateDemo");
       setStep("items");
     }
-  }, []);
+  }, [router]);
 
   // クリック外でドロップダウンを閉じる
   useEffect(() => {

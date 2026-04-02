@@ -209,6 +209,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       if (imageMode && containerRef.current?.contains(e.target as Node) && e.touches.length === 2) return;
       // テキスト入力欄は通常操作許可
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      // ツールバーのボタン・スライダーはタッチ操作を許可（click合成を壊さない）
+      const tag = (e.target as HTMLElement)?.closest?.("button, input[type=range]");
+      if (tag) return;
       e.preventDefault();
     };
     document.body.style.overflow = "hidden";
@@ -278,20 +281,39 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     };
   }, []);
 
+  // 画像をコンテナにフィットさせるスケール計算
+  const fitImage = useCallback((img: HTMLImageElement) => {
+    const c = containerRef.current;
+    if (!c) return;
+    const padding = 8;
+    const scale = Math.min((c.clientWidth - padding) / img.width, (c.clientHeight - padding) / img.height);
+    baseScale.current = scale;
+    setCvs({ width: Math.floor(img.width * scale), height: Math.floor(img.height * scale) });
+  }, []);
+
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       setImage(img);
-      const c = containerRef.current;
-      if (c) {
-        const scale = Math.min((c.clientWidth - 4) / img.width, (c.clientHeight - 4) / img.height);
-        baseScale.current = scale;
-        setCvs({ width: Math.floor(img.width * scale), height: Math.floor(img.height * scale) });
-      }
+      // レイアウト完了後にフィット計算（ツールバー描画後のコンテナサイズを使う）
+      requestAnimationFrame(() => requestAnimationFrame(() => fitImage(img)));
     };
     img.src = imageUrl;
-  }, [imageUrl]);
+  }, [imageUrl, fitImage]);
+
+  // ウィンドウリサイズ時に再フィット（visualViewport対応でiPadブラウザUI変化にも追従）
+  useEffect(() => {
+    if (!image) return;
+    const handleResize = () => fitImage(image);
+    window.addEventListener("resize", handleResize);
+    const vv = window.visualViewport;
+    if (vv) vv.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (vv) vv.removeEventListener("resize", handleResize);
+    };
+  }, [image, fitImage]);
 
   useEffect(() => {
     if (!image) return;
@@ -314,7 +336,9 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       const isSel = a.id === selId;
 
       if (a.type === "circle" && a.radiusX !== undefined && a.radiusY !== undefined) {
-        ctx.beginPath(); ctx.ellipse(a.x, a.y, Math.abs(a.radiusX), Math.abs(a.radiusY), 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(a.x, a.y, Math.abs(a.radiusX), Math.abs(a.radiusY), 0, 0, Math.PI * 2);
+        if (a.filled) { ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1; }
+        ctx.stroke();
       } else if (a.type === "arrow" && a.endX !== undefined && a.endY !== undefined) {
         const hl = 12 + lw * 2;
         const ang = Math.atan2(a.endY - a.y, a.endX - a.x);
@@ -326,7 +350,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         ctx.lineTo(a.endX - hl * Math.cos(ang + Math.PI / 6), a.endY - hl * Math.sin(ang + Math.PI / 6));
         ctx.stroke();
       } else if (a.type === "rectangle" && a.width !== undefined && a.height !== undefined) {
-        ctx.beginPath(); ctx.strokeRect(a.x, a.y, a.width, a.height);
+        if (a.filled) { ctx.globalAlpha = 0.3; ctx.fillRect(a.x, a.y, a.width, a.height); ctx.globalAlpha = 1; }
+        ctx.strokeRect(a.x, a.y, a.width, a.height);
       }
 
       if (isSel) {
@@ -479,22 +504,34 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     setAnns((p) => p.map((a) => a.id === selId ? { ...a, ...patch } : a));
   };
 
+  // 最新のannsを常にrefで保持（setTimeoutのクロージャ問題回避）
+  const annsRef = useRef(anns);
+  annsRef.current = anns;
+  const savingRef = useRef(false);
+
   const handleSave = () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     // テキストをCanvasに描画してから保存
     setSelId(null);
     setTimeout(() => {
       const canvas = canvasRef.current;
       if (!canvas || !image) return;
+      const currentAnns = annsRef.current;
+      const shapes = currentAnns.filter((a) => a.type !== "text");
+      const texts = currentAnns.filter((a) => a.type === "text");
       const ctx = canvas.getContext("2d")!;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       // 図形描画
-      shapeAnns.forEach((a) => {
+      shapes.forEach((a) => {
         const c = a.color || "#FF0000";
         const lw = a.lineWidth || 3;
         ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = lw;
         if (a.type === "circle" && a.radiusX !== undefined && a.radiusY !== undefined) {
-          ctx.beginPath(); ctx.ellipse(a.x, a.y, Math.abs(a.radiusX), Math.abs(a.radiusY), 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(a.x, a.y, Math.abs(a.radiusX), Math.abs(a.radiusY), 0, 0, Math.PI * 2);
+          if (a.filled) { ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1; }
+          ctx.stroke();
         } else if (a.type === "arrow" && a.endX !== undefined && a.endY !== undefined) {
           const hl = 12 + lw * 2; const ang = Math.atan2(a.endY - a.y, a.endX - a.x);
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.endX, a.endY); ctx.stroke();
@@ -505,11 +542,12 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           ctx.lineTo(a.endX - hl * Math.cos(ang + Math.PI / 6), a.endY - hl * Math.sin(ang + Math.PI / 6));
           ctx.stroke();
         } else if (a.type === "rectangle" && a.width !== undefined && a.height !== undefined) {
+          if (a.filled) { ctx.globalAlpha = 0.3; ctx.fillRect(a.x, a.y, a.width, a.height); ctx.globalAlpha = 1; }
           ctx.strokeRect(a.x, a.y, a.width, a.height);
         }
       });
       // テキスト描画（保存時のみCanvasに描画）
-      textAnns.forEach((a) => {
+      texts.forEach((a) => {
         if (!a.text) return;
         const fs = a.fontSize || 18;
         ctx.font = `bold ${fs}px sans-serif`;
@@ -522,10 +560,10 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         ctx.fillText(a.text, a.x, a.y);
         ctx.textBaseline = "alphabetic";
       });
-      onAnnotationsChange(anns);
+      onAnnotationsChange(currentAnns);
       onSave(canvas.toDataURL("image/png"));
       onClose();
-    }, 50);
+    }, 100);
   };
 
   const allTools: { id: Tool; label: string }[] = [
@@ -533,21 +571,24 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     { id: "rectangle", label: "▢ 四角" }, { id: "arrow", label: "➡ 矢印" }, { id: "text", label: "T 文字" },
   ];
 
-  // Apple Pencil対応: pointerdownで即座にアクション発火（pen/touch/mouse全対応）
+  // Apple Pencil + タッチ + マウス全対応: 3系統イベントでデバウンス発火
   const lastAction = useRef(0);
+  const fireAction = (action: () => void) => {
+    const now = Date.now();
+    if (now - lastAction.current < 400) return;
+    lastAction.current = now;
+    action();
+  };
   const penBtn = (action: () => void) => ({
-    onPointerDown: () => {
-      const now = Date.now();
-      if (now - lastAction.current < 300) return; // 二重発火防止
-      lastAction.current = now;
-      action();
-    },
+    onPointerDown: () => fireAction(action),
+    onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); fireAction(action); },
+    onClick: () => fireAction(action),
   });
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ overscrollBehavior: "none" }}>
+    <div className="fixed left-0 right-0 bg-black z-50 flex flex-col" style={{ top: 0, bottom: 0, height: "100dvh", overscrollBehavior: "none" }}>
       {/* ツールバー 上段: ツール選択 + アクションボタン */}
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1" style={{ minHeight: 44, touchAction: "manipulation" }}>
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1 flex-shrink-0" style={{ minHeight: 44, touchAction: "manipulation" }}>
         <div className="flex gap-1 items-center flex-wrap">
           <button {...penBtn(() => { setImageMode(!imageMode); if (!imageMode) setSelId(null); })}
             className={`rounded text-sm font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
@@ -569,17 +610,19 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           <button {...penBtn(() => { setAnns((p) => p.slice(0, -1)); setSelId(null); })}
             className="bg-gray-700 text-gray-300 rounded text-sm active:bg-gray-500"
             style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>↩</button>
-          <button {...penBtn(handleSave)}
+          <button
+            onPointerDown={handleSave} onTouchEnd={(e) => { e.preventDefault(); handleSave(); }} onClick={handleSave}
             className="bg-green-600 text-white rounded text-sm font-bold active:bg-green-700"
             style={{ minWidth: 52, minHeight: 44, padding: "0 12px", touchAction: "manipulation" }}>保存</button>
-          <button {...penBtn(onClose)}
+          <button
+            onPointerDown={onClose} onTouchEnd={(e) => { e.preventDefault(); onClose(); }} onClick={onClose}
             className="bg-gray-700 text-gray-300 rounded text-sm active:bg-gray-500"
             style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>✕</button>
         </div>
       </div>
 
       {/* ツールバー 下段: カラー + ズーム */}
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-800 border-t border-gray-700 gap-2" style={{ minHeight: 40, touchAction: "manipulation" }}>
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-800 border-t border-gray-700 gap-2 flex-shrink-0" style={{ minHeight: 40, touchAction: "manipulation" }}>
         <div className="flex gap-1.5 items-center">
           {COLORS.map((c) => (
             <button key={c.v} {...penBtn(() => { setColor(c.v); if (selId) updateSel({ color: c.v }); })}
@@ -597,7 +640,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       {/* テキスト選択時: 文字サイズスライダー */}
       {sel?.type === "text" && (
-        <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800 border-t border-gray-700" style={{ minHeight: 40, touchAction: "manipulation" }}>
+        <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800 border-t border-gray-700 flex-shrink-0" style={{ minHeight: 40, touchAction: "manipulation" }}>
           <span className="text-gray-300 text-sm font-bold">文字サイズ:</span>
           <input type="range" min={10} max={60} value={sel.fontSize || 18} onChange={(e) => updateSel({ fontSize: Number(e.target.value) })} className="w-32 accent-blue-500" style={{ minHeight: 28, touchAction: "manipulation" }} />
           <span className="text-white text-sm font-bold">{sel.fontSize || 18}px</span>
@@ -606,7 +649,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       {/* 丸・四角・矢印選択時プロパティ */}
       {sel && (sel.type === "circle" || sel.type === "rectangle" || sel.type === "arrow") && (
-        <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700" style={{ minHeight: 40, touchAction: "manipulation" }}>
+        <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700 flex-shrink-0" style={{ minHeight: 40, touchAction: "manipulation" }}>
           <span className="text-gray-400 text-sm">色:</span>
           {COLORS.map((c) => (
             <button key={c.v} {...penBtn(() => updateSel({ color: c.v }))}
@@ -616,6 +659,13 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           <span className="text-gray-400 text-sm ml-2">太さ:</span>
           <input type="range" min={1} max={8} value={sel.lineWidth || 3} onChange={(e) => updateSel({ lineWidth: Number(e.target.value) })} className="w-16 accent-blue-500" style={{ minHeight: 28, touchAction: "manipulation" }} />
           <span className="text-gray-300 text-sm">{sel.lineWidth || 3}px</span>
+          {(sel.type === "circle" || sel.type === "rectangle") && (
+            <button {...penBtn(() => updateSel({ filled: !sel.filled }))}
+              className={`ml-2 rounded text-xs font-bold ${sel.filled ? "bg-blue-500 text-white" : "bg-gray-600 text-gray-300"}`}
+              style={{ minWidth: 40, minHeight: 32, padding: "0 8px", touchAction: "manipulation" }}>
+              {sel.filled ? "塗り" : "枠"}
+            </button>
+          )}
         </div>
       )}
 
@@ -638,7 +688,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
             return (
               <button
                 {...penBtn(() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); })}
-                style={{ position: "absolute", left: bb.x2 - 4, top: bb.y1 - 16, width: 32, height: 32, borderRadius: 16,
+                style={{ position: "absolute", left: bb.x2 + 8, top: bb.y1 - 28, width: 32, height: 32, borderRadius: 16,
                   background: "#ff3333", color: "white", border: "2px solid white", fontSize: 16, fontWeight: "bold",
                   display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 25, touchAction: "manipulation" }}>
                 ×
@@ -656,7 +706,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       {/* テキストモード時のガイド表示 */}
       {tool === "text" && !imageMode && (
-        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center" style={{ touchAction: "manipulation" }}>
+        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center flex-shrink-0" style={{ touchAction: "manipulation" }}>
           <span className="text-yellow-200 text-sm font-bold">画面をタップして文字を配置</span>
         </div>
       )}

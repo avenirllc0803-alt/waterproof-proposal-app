@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo } from "@/types";
 
 export default function ProposalPage() {
   const router = useRouter();
+
+  // リロード検知: アプリ内遷移フラグがなければトップへ
+  useEffect(() => {
+    if (!sessionStorage.getItem("__nav")) { router.replace("/"); return; }
+  }, [router]);
+
   const [form, setForm] = useState<CustomerInfo>({
     customerName: "",
     propertyName: "",
@@ -16,6 +22,7 @@ export default function ProposalPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sessionStorage.setItem("customerInfo", JSON.stringify(form));
+    sessionStorage.setItem("__nav", "1");
     router.push("/edit");
   };
 

@@ -13,9 +13,11 @@ export default function EditPage() {
   const [sections, setSections] = useState<ProposalSection[]>([]);
 
   useEffect(() => {
+    // リロード検知: アプリ内遷移フラグがなければトップへ
+    if (!sessionStorage.getItem("__nav")) { router.replace("/"); return; }
     const stored = sessionStorage.getItem("customerInfo");
     if (!stored) {
-      router.push("/");
+      router.replace("/");
       return;
     }
     setCustomerInfo(JSON.parse(stored));
@@ -67,6 +69,7 @@ export default function EditPage() {
 
   const goToPreview = () => {
     sessionStorage.setItem("sections", JSON.stringify(sections));
+    sessionStorage.setItem("__nav", "1");
     router.push("/preview");
   };
 

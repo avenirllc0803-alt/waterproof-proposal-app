@@ -1,9 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
   const router = useRouter();
+
+  // トップページに来たらナビゲーションフラグをリセット
+  useEffect(() => {
+    sessionStorage.removeItem("__nav");
+  }, []);
+
+  // アプリ内遷移: フラグをセットしてからルーティング
+  const navTo = (path: string) => {
+    sessionStorage.setItem("__nav", "1");
+    router.push(path);
+  };
 
   const loadProposalDemo = () => {
     sessionStorage.setItem(
@@ -16,17 +28,17 @@ export default function Home() {
       })
     );
     sessionStorage.setItem("useDemo", "true");
-    router.push("/edit");
+    navTo("/edit");
   };
 
   const loadEstimateDemo = () => {
     sessionStorage.setItem("useEstimateDemo", "true");
-    router.push("/estimate");
+    navTo("/estimate");
   };
 
   const loadInvoiceDemo = () => {
     sessionStorage.setItem("useInvoiceDemo", "true");
-    router.push("/invoice");
+    navTo("/invoice");
   };
 
   return (
@@ -73,8 +85,8 @@ export default function Home() {
               現場写真と説明文で調査報告書・提案書を作成します。
             </p>
             <button
-              onClick={() => router.push("/proposal")}
-              onPointerDown={() => router.push("/proposal")}
+              onClick={() => navTo("/proposal")}
+              onPointerDown={() => navTo("/proposal")}
               className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow"
               style={{ touchAction: "manipulation", minHeight: 52 }}
             >
@@ -104,8 +116,8 @@ export default function Home() {
               防水・塗装工事の見積書を材料テンプレートから作成します。
             </p>
             <button
-              onClick={() => router.push("/estimate")}
-              onPointerDown={() => router.push("/estimate")}
+              onClick={() => navTo("/estimate")}
+              onPointerDown={() => navTo("/estimate")}
               className="w-full bg-green-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-green-700 active:bg-green-800 transition-colors shadow"
               style={{ touchAction: "manipulation", minHeight: 52 }}
             >
@@ -135,8 +147,8 @@ export default function Home() {
               見積書のデータから請求書を作成。振込先も設定できます。
             </p>
             <button
-              onClick={() => router.push("/invoice")}
-              onPointerDown={() => router.push("/invoice")}
+              onClick={() => navTo("/invoice")}
+              onPointerDown={() => navTo("/invoice")}
               className="w-full bg-orange-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-orange-700 active:bg-orange-800 transition-colors shadow"
               style={{ touchAction: "manipulation", minHeight: 52 }}
             >

@@ -22,6 +22,7 @@ export interface Annotation {
   fontSize?: number;
   boxed?: boolean;
   bgColor?: string;
+  filled?: boolean;
 }
 
 export interface ProposalSection {
