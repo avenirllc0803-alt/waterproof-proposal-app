@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, EstimateItem } from "@/types";
 import { demoEstimateItems } from "@/data/estimateTemplates";
+import SharePdfModal from "@/components/SharePdfModal";
 
 export default function InvoicePage() {
   const router = useRouter();
@@ -65,13 +66,12 @@ export default function InvoicePage() {
   const total = subtotal + tax;
   const formatNumber = (n: number) => n.toLocaleString("ja-JP");
 
-  const generatePdf = async () => {
-    setGenerating(true);
+  const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
       const element = previewRef.current;
-      if (!element) return;
+      if (!element) return null;
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -92,7 +92,19 @@ export default function InvoicePage() {
           heightLeft -= pageHeight;
         }
       }
-      const blob = pdf.output("blob");
+      return pdf.output("blob");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("PDF生成に失敗しました。");
+      return null;
+    }
+  };
+
+  const generatePdf = async () => {
+    setGenerating(true);
+    try {
+      const blob = await generatePdfBlob();
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const w = window.open(url, "_blank");
       if (!w) {
@@ -103,11 +115,13 @@ export default function InvoicePage() {
       }
     } catch (err) {
       console.error("PDF generation failed:", err);
-      alert("PDF生成に失敗しました。");
     } finally {
       setGenerating(false);
     }
   };
+
+  const invoicePdfFileName = `請求書_${form.propertyName}_${form.date}.pdf`;
+  const invoicePdfTitle = `請求書（${form.propertyName}）`;
 
   const saveToPC = () => {
     const data = { type: "invoice", customerInfo: form, items, invoiceNumber, dueDate, bankInfo, notes, taxRate };
@@ -225,10 +239,18 @@ export default function InvoicePage() {
               <button onClick={() => router.push("/")} className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100">トップ</button>
             </div>
             <h1 className="font-bold text-gray-800 text-lg">請求書プレビュー</h1>
-            <button onClick={generatePdf} disabled={generating}
-              className="px-5 py-3 bg-orange-600 text-white rounded-xl text-base font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow">
-              {generating ? "生成中..." : "PDF出力"}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={generatePdf} disabled={generating}
+                className="px-5 py-3 bg-orange-600 text-white rounded-xl text-base font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow">
+                {generating ? "生成中..." : "PDF出力"}
+              </button>
+              <SharePdfModal
+                generatePdfBlob={generatePdfBlob}
+                fileName={invoicePdfFileName}
+                documentTitle={invoicePdfTitle}
+                theme="orange"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -307,10 +329,18 @@ export default function InvoicePage() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
         <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16">
-          <button onClick={generatePdf} disabled={generating}
-            className="w-full bg-orange-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-lg">
-            {generating ? "PDF生成中..." : "PDFをダウンロード"}
-          </button>
+          <div className="flex gap-3">
+            <button onClick={generatePdf} disabled={generating}
+              className="flex-1 bg-orange-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-lg">
+              {generating ? "生成中..." : "PDF出力"}
+            </button>
+            <SharePdfModal
+              generatePdfBlob={generatePdfBlob}
+              fileName={invoicePdfFileName}
+              documentTitle={invoicePdfTitle}
+              theme="orange"
+            />
+          </div>
         </div>
       </div>
     </div>

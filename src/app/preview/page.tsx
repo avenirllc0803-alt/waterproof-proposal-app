@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, ProposalSection } from "@/types";
+import SharePdfModal from "@/components/SharePdfModal";
 
 export default function PreviewPage() {
   const router = useRouter();
@@ -24,14 +25,13 @@ export default function PreviewPage() {
     setSections(JSON.parse(storedSections));
   }, [router]);
 
-  const generatePdf = async () => {
-    setGenerating(true);
+  const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
       const element = previewRef.current;
-      if (!element) return;
+      if (!element) return null;
 
       // html2canvasのscale倍率
       const h2cScale = 2;
@@ -125,7 +125,19 @@ export default function PreviewPage() {
         });
       }
 
-      const blob = pdf.output("blob");
+      return pdf.output("blob");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("PDF生成に失敗しました。もう一度お試しください。");
+      return null;
+    }
+  };
+
+  const generatePdf = async () => {
+    setGenerating(true);
+    try {
+      const blob = await generatePdfBlob();
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const fileName = customerInfo ? `提案書_${customerInfo.propertyName}_${customerInfo.date}.pdf` : "提案書.pdf";
       const a = document.createElement("a");
@@ -142,6 +154,9 @@ export default function PreviewPage() {
       setGenerating(false);
     }
   };
+
+  const pdfFileName = customerInfo ? `提案書_${customerInfo.propertyName}_${customerInfo.date}.pdf` : "提案書.pdf";
+  const pdfTitle = customerInfo ? `現場調査報告書（${customerInfo.propertyName}）` : "現場調査報告書";
 
   // iPad/Apple Pencil対応: pointerdown + click両方でデバウンス発火
   const lastAction = useRef(0);
@@ -179,15 +194,23 @@ export default function PreviewPage() {
               </button>
             </div>
             <h1 className="font-bold text-gray-800 text-lg">プレビュー</h1>
-            <button
-              onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
-              onClick={() => { if (!generating) safeAction(generatePdf); }}
-              disabled={generating}
-              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow"
-              style={{ touchAction: "manipulation", minHeight: 48 }}
-            >
-              {generating ? "生成中..." : "PDF出力"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
+                onClick={() => { if (!generating) safeAction(generatePdf); }}
+                disabled={generating}
+                className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow"
+                style={{ touchAction: "manipulation", minHeight: 48 }}
+              >
+                {generating ? "生成中..." : "PDF出力"}
+              </button>
+              <SharePdfModal
+                generatePdfBlob={generatePdfBlob}
+                fileName={pdfFileName}
+                documentTitle={pdfTitle}
+                theme="green"
+              />
+            </div>
           </div>
 
           {/* ステップ表示 */}
@@ -310,15 +333,23 @@ export default function PreviewPage() {
 
       {/* Bottom bar (mobile) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 sm:hidden" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-        <button
-          onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
-          onClick={() => { if (!generating) safeAction(generatePdf); }}
-          disabled={generating}
-          className="w-full bg-green-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow-lg"
-          style={{ touchAction: "manipulation", minHeight: 56 }}
-        >
-          {generating ? "PDF生成中..." : "PDFをダウンロード"}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
+            onClick={() => { if (!generating) safeAction(generatePdf); }}
+            disabled={generating}
+            className="flex-1 bg-green-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow-lg"
+            style={{ touchAction: "manipulation", minHeight: 56 }}
+          >
+            {generating ? "生成中..." : "PDF出力"}
+          </button>
+          <SharePdfModal
+            generatePdfBlob={generatePdfBlob}
+            fileName={pdfFileName}
+            documentTitle={pdfTitle}
+            theme="green"
+          />
+        </div>
       </div>
     </div>
   );
