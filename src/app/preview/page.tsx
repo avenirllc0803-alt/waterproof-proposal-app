@@ -198,7 +198,7 @@ export default function PreviewPage() {
               onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
               onClick={() => { if (!generating) safeAction(generatePdf); }}
               disabled={generating}
-              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow"
+              className="hidden sm:block px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow"
               style={{ touchAction: "manipulation", minHeight: 48 }}
             >
               {generating ? "生成中..." : "PDF出力"}

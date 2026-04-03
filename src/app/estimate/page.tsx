@@ -425,7 +425,7 @@ export default function EstimatePage() {
             </div>
             <h1 className="font-bold text-gray-800 text-lg">見積書プレビュー</h1>
             <button onClick={generatePdf} disabled={generating}
-              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow">
+              className="hidden sm:block px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow">
               {generating ? "生成中..." : "PDF出力"}
             </button>
           </div>
