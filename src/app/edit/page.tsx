@@ -194,7 +194,7 @@ export default function EditPage() {
               className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-lg"
               style={{ touchAction: "manipulation", minHeight: 56 }}
             >
-              次へ：プレビューを確認 →
+              プレビュー
             </button>
           </div>
         </div>
