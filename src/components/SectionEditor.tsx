@@ -269,7 +269,6 @@ export default function SectionEditor({
           </div>
         </div>
       </div>
-
       </div>
 
       {showAnnotation && section.imageUrl && (
