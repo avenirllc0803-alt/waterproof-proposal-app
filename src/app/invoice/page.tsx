@@ -239,10 +239,7 @@ export default function InvoicePage() {
               <button onClick={() => router.push("/")} className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100">トップ</button>
             </div>
             <h1 className="font-bold text-gray-800 text-lg">請求書プレビュー</h1>
-            <button onClick={generatePdf} disabled={generating}
-              className="hidden sm:block px-5 py-3 bg-orange-600 text-white rounded-xl text-base font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow">
-              {generating ? "生成中..." : "PDF出力"}
-            </button>
+            <div className="w-24" />
           </div>
         </div>
       </div>

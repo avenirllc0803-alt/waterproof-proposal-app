@@ -194,15 +194,7 @@ export default function PreviewPage() {
               </button>
             </div>
             <h1 className="font-bold text-gray-800 text-lg">プレビュー</h1>
-            <button
-              onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
-              onClick={() => { if (!generating) safeAction(generatePdf); }}
-              disabled={generating}
-              className="hidden sm:block px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow"
-              style={{ touchAction: "manipulation", minHeight: 48 }}
-            >
-              {generating ? "生成中..." : "PDF出力"}
-            </button>
+            <div className="w-24" />
           </div>
 
           {/* ステップ表示 */}
@@ -323,24 +315,26 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      {/* Bottom bar (mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 sm:hidden" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-        <div className="flex gap-3">
-          <button
-            onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
-            onClick={() => { if (!generating) safeAction(generatePdf); }}
-            disabled={generating}
-            className="flex-1 bg-green-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow-lg"
-            style={{ touchAction: "manipulation", minHeight: 56 }}
-          >
-            {generating ? "生成中..." : "PDF出力"}
-          </button>
-          <SharePdfModal
-            generatePdfBlob={generatePdfBlob}
-            fileName={pdfFileName}
-            documentTitle={pdfTitle}
-            theme="green"
-          />
+      {/* Bottom bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+        <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16">
+          <div className="flex gap-3">
+            <button
+              onPointerDown={(e) => { e.preventDefault(); if (!generating) safeAction(generatePdf); }}
+              onClick={() => { if (!generating) safeAction(generatePdf); }}
+              disabled={generating}
+              className="flex-1 bg-green-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors shadow-lg"
+              style={{ touchAction: "manipulation", minHeight: 56 }}
+            >
+              {generating ? "生成中..." : "PDF出力"}
+            </button>
+            <SharePdfModal
+              generatePdfBlob={generatePdfBlob}
+              fileName={pdfFileName}
+              documentTitle={pdfTitle}
+              theme="green"
+            />
+          </div>
         </div>
       </div>
     </div>
