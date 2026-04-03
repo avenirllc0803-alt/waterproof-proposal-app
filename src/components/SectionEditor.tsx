@@ -65,7 +65,8 @@ export default function SectionEditor({
   const displayImage = section.annotatedImageUrl || section.imageUrl;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
+    <>
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
       {/* ヘッダー */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
         <div className="flex items-center gap-2">
@@ -269,6 +270,8 @@ export default function SectionEditor({
         </div>
       </div>
 
+      </div>
+
       {showAnnotation && section.imageUrl && (
         <AnnotationCanvas
           imageUrl={section.imageUrl}
@@ -282,6 +285,6 @@ export default function SectionEditor({
           onClose={() => setShowAnnotation(false)}
         />
       )}
-    </div>
+    </>
   );
 }
