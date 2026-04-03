@@ -424,18 +424,10 @@ export default function EstimatePage() {
               <button onClick={() => router.push("/")} className="text-gray-400 hover:text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-100">トップ</button>
             </div>
             <h1 className="font-bold text-gray-800 text-lg">見積書プレビュー</h1>
-            <div className="flex gap-2">
-              <button onClick={generatePdf} disabled={generating}
-                className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow">
-                {generating ? "生成中..." : "PDF出力"}
-              </button>
-              <SharePdfModal
-                generatePdfBlob={generatePdfBlob}
-                fileName={estimatePdfFileName}
-                documentTitle={estimatePdfTitle}
-                theme="green"
-              />
-            </div>
+            <button onClick={generatePdf} disabled={generating}
+              className="px-5 py-3 bg-green-600 text-white rounded-xl text-base font-bold hover:bg-green-700 disabled:opacity-50 transition-colors shadow">
+              {generating ? "生成中..." : "PDF出力"}
+            </button>
           </div>
         </div>
       </div>

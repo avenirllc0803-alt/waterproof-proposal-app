@@ -3,13 +3,9 @@
 import { useState } from "react";
 
 interface SharePdfModalProps {
-  /** PDFのBlobを生成して返す関数 */
   generatePdfBlob: () => Promise<Blob | null>;
-  /** PDFファイル名 */
   fileName: string;
-  /** 共有時のメール件名・メッセージ用タイトル */
   documentTitle: string;
-  /** テーマカラー（green / orange） */
   theme?: "green" | "orange";
 }
 
@@ -23,12 +19,22 @@ export default function SharePdfModal({
   const [sharing, setSharing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
-  const themeColor = theme === "orange" ? "orange" : "green";
   const bgClass = theme === "orange" ? "bg-orange-600 hover:bg-orange-700 active:bg-orange-800" : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800";
 
   const showStatus = (msg: string) => {
     setStatus(msg);
     setTimeout(() => setStatus(null), 3000);
+  };
+
+  const downloadBlob = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
 
   // Web Share API でPDFファイルを共有（モバイル対応）
@@ -47,12 +53,11 @@ export default function SharePdfModal({
         });
         showStatus("共有しました");
       } else {
-        // ファイル共有非対応の場合はテキストのみ
         await navigator.share({
           title: documentTitle,
           text: `${documentTitle}をお送りします。PDFファイルは別途添付いたします。`,
         });
-        showStatus("テキストを共有しました。PDFは別途ダウンロードしてください。");
+        showStatus("テキストを共有しました");
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
@@ -63,65 +68,42 @@ export default function SharePdfModal({
     }
   };
 
-  // PDFをダウンロードしてからメールを開く
-  const shareEmail = async () => {
+  // メールで送る（URLを先に開いてブロック回避）
+  const shareEmail = () => {
     setSharing(true);
-    try {
-      const blob = await generatePdfBlob();
-      if (!blob) return;
 
-      // まずPDFをダウンロード
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    // 同期的にメールを開く（ブロック回避）
+    const subject = encodeURIComponent(documentTitle);
+    const body = encodeURIComponent(
+      `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
 
-      // メール作成画面を開く
-      const subject = encodeURIComponent(documentTitle);
-      const body = encodeURIComponent(
-        `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
-      );
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      showStatus("PDFをダウンロードしました。メールに添付してください。");
-    } catch {
-      showStatus("エラーが発生しました");
-    } finally {
-      setSharing(false);
-    }
+    // その後PDFをダウンロード
+    generatePdfBlob().then((blob) => {
+      if (blob) {
+        downloadBlob(blob);
+        showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
+      }
+    }).finally(() => setSharing(false));
   };
 
-  // LINEで共有
-  const shareLINE = async () => {
+  // LINEで送る（URLを先に開いてブロック回避）
+  const shareLINE = () => {
     setSharing(true);
-    try {
-      // まずPDFをダウンロード
-      const blob = await generatePdfBlob();
-      if (!blob) return;
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    // 同期的にLINEを開く（ブロック回避）
+    const message = encodeURIComponent(
+      `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
+    );
+    window.location.href = `https://line.me/R/share?text=${message}`;
 
-      // LINEでテキストメッセージを送信
-      const message = encodeURIComponent(
-        `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
-      );
-      window.open(`https://line.me/R/share?text=${message}`, "_blank");
-      showStatus("PDFをダウンロードしました。LINEでファイルも送信してください。");
-    } catch {
-      showStatus("エラーが発生しました");
-    } finally {
-      setSharing(false);
-    }
+    // その後PDFをダウンロード
+    generatePdfBlob().then((blob) => {
+      if (blob) {
+        downloadBlob(blob);
+      }
+    }).finally(() => setSharing(false));
   };
 
   // PDFダウンロードのみ
@@ -130,14 +112,7 @@ export default function SharePdfModal({
     try {
       const blob = await generatePdfBlob();
       if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      downloadBlob(blob);
       showStatus("ダウンロードしました");
     } catch {
       showStatus("ダウンロードに失敗しました");
@@ -150,7 +125,6 @@ export default function SharePdfModal({
 
   return (
     <div className="relative">
-      {/* 共有ボタン */}
       <button
         onClick={() => setOpen(!open)}
         disabled={sharing}
@@ -160,28 +134,23 @@ export default function SharePdfModal({
         {sharing ? "処理中..." : "共有・送信"}
       </button>
 
-      {/* ステータスメッセージ */}
       {status && (
-        <div className="absolute top-full right-0 mt-2 bg-gray-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg whitespace-nowrap z-50">
+        <div className="absolute bottom-full right-0 mb-2 bg-gray-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg whitespace-nowrap z-50">
           {status}
         </div>
       )}
 
-      {/* モーダル */}
       {open && (
         <>
-          {/* 背景オーバーレイ */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          {/* メニュー */}
-          <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 w-72 z-50 overflow-hidden">
+          <div className="absolute right-0 bottom-full mb-2 bg-white rounded-2xl shadow-2xl border border-gray-200 w-72 z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
               <p className="text-sm font-bold text-gray-700">PDFを共有・送信</p>
               <p className="text-xs text-gray-500 mt-0.5">送信方法を選んでください</p>
             </div>
 
             <div className="p-2">
-              {/* Web Share API（モバイル） */}
               {supportsNativeShare && (
                 <button
                   onClick={() => { setOpen(false); shareNative(); }}
@@ -199,7 +168,6 @@ export default function SharePdfModal({
                 </button>
               )}
 
-              {/* LINE */}
               <button
                 onClick={() => { setOpen(false); shareLINE(); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-green-50 active:bg-green-100 transition-colors text-left"
@@ -209,11 +177,10 @@ export default function SharePdfModal({
                 </span>
                 <div>
                   <p className="text-sm font-bold text-gray-800">LINEで送る</p>
-                  <p className="text-xs text-gray-500">PDFをダウンロード後、LINEで送信</p>
+                  <p className="text-xs text-gray-500">LINEを開いてメッセージを送信</p>
                 </div>
               </button>
 
-              {/* メール */}
               <button
                 onClick={() => { setOpen(false); shareEmail(); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-orange-50 active:bg-orange-100 transition-colors text-left"
@@ -226,11 +193,10 @@ export default function SharePdfModal({
                 </span>
                 <div>
                   <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                  <p className="text-xs text-gray-500">PDFをダウンロード後、メール作成</p>
+                  <p className="text-xs text-gray-500">メール作成後、PDFを自動ダウンロード</p>
                 </div>
               </button>
 
-              {/* ダウンロード */}
               <button
                 onClick={() => { setOpen(false); downloadPdf(); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
