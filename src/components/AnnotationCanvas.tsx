@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+// @ts-ignore
+import { createPortal } from "react-dom";
 import type { Annotation } from "@/types";
 
 interface Props {
@@ -584,8 +586,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     onClick: () => fireAction(action),
   });
 
-  return (
-    <div className="fixed left-0 right-0 bg-black z-50 flex flex-col" style={{ top: 0, bottom: 0, height: "100dvh", overscrollBehavior: "none" }}>
+  return createPortal(
+    <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 9999, height: "100dvh", overscrollBehavior: "none" }}>
       {/* ツールバー 上段: ツール選択 + アクションボタン */}
       <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1 flex-shrink-0" style={{ minHeight: 44, touchAction: "manipulation" }}>
         <div className="flex gap-1 items-center flex-wrap">
@@ -710,6 +712,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       )}
 
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ReloadGuard from "@/components/ReloadGuard";
 
 export const metadata: Metadata = {
   title: "現場書類ジェネレーター",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className="bg-gray-50 min-h-screen">{children}</body>
+      <body className="bg-gray-50 min-h-screen">
+        <ReloadGuard />
+        {children}
+      </body>
     </html>
   );
 }
