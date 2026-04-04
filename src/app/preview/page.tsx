@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, ProposalSection } from "@/types";
 import SharePdfModal from "@/components/SharePdfModal";
@@ -11,6 +11,23 @@ export default function PreviewPage() {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [sections, setSections] = useState<ProposalSection[]>([]);
   const [generating, setGenerating] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
+  const updateScale = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    // コンテナ幅（padding 16px*2を引く）に対してA4幅794pxを収める
+    const availableWidth = container.clientWidth - 32;
+    const scale = Math.min(1, availableWidth / 794);
+    setPreviewScale(scale);
+  }, []);
+
+  useEffect(() => {
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, [updateScale]);
 
   useEffect(() => {
     // リロード検知: アプリ内遷移フラグがなければトップへ
@@ -226,13 +243,13 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      {/* Preview content — A4固定幅(794px = 210mm@96dpi)、モバイルは縮小表示 */}
-      <div className="p-4 overflow-x-auto" style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ width: 794, minWidth: 794 }}>
+      {/* Preview content — A4固定幅(794px = 210mm@96dpi)、モバイルはCSS transformで縮小表示 */}
+      <div ref={containerRef} className="p-4 flex justify-center">
+        <div style={{ width: 794 * previewScale, overflow: "hidden" }}>
           <div
             ref={previewRef}
-            className="bg-white shadow-lg"
-            style={{ width: 794, padding: "40px 48px", boxSizing: "border-box" }}
+            className="bg-white shadow-lg origin-top-left"
+            style={{ width: 794, padding: "40px 48px", boxSizing: "border-box", transform: `scale(${previewScale})` }}
           >
             {/* Document Header */}
             <div style={{ borderBottom: "3px solid #1e3a5f", paddingBottom: 16, marginBottom: 24 }}>
