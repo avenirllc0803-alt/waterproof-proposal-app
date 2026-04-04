@@ -128,24 +128,29 @@ export default function SharePdfModal({
     return false;
   };
 
-  // LINEで送る — まずWeb Share API、失敗時はLINE URL + PDFダウンロード
+  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // LINEで送る
+  // モバイル: Web Share API（共有シートからLINE選択）
+  // PC: LINE URLを直接開く + PDFダウンロード
   const shareLINE = async () => {
     setSharing(true);
     try {
       const blob = await getBlob();
       if (!blob) return;
 
-      const shared = await tryShareWithFile(blob, `${documentTitle}をお送りします。`);
-      if (shared) {
-        showStatus("共有しました");
-        return;
+      if (isMobile) {
+        const shared = await tryShareWithFile(blob, `${documentTitle}をお送りします。`);
+        if (shared) {
+          showStatus("共有しました");
+          return;
+        }
       }
 
-      // フォールバック: LINE URLを開く + PDFダウンロード
+      // PC or モバイルフォールバック: LINE URLを開く + PDFダウンロード
       const message = encodeURIComponent(
         `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
       );
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
         window.location.href = `https://line.me/R/share?text=${message}`;
       } else {
@@ -159,23 +164,27 @@ export default function SharePdfModal({
     }
   };
 
-  // メールで送る — まずWeb Share API、失敗時はmailto + PDFダウンロード
+  // メールで送る
+  // モバイル: Web Share API（共有シートからメール選択）
+  // PC: mailtoを直接開く + PDFダウンロード
   const shareEmail = async () => {
     setSharing(true);
     try {
       const blob = await getBlob();
       if (!blob) return;
 
-      const shared = await tryShareWithFile(
-        blob,
-        `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
-      );
-      if (shared) {
-        showStatus("共有しました");
-        return;
+      if (isMobile) {
+        const shared = await tryShareWithFile(
+          blob,
+          `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
+        );
+        if (shared) {
+          showStatus("共有しました");
+          return;
+        }
       }
 
-      // フォールバック: mailtoを開く + PDFダウンロード
+      // PC or モバイルフォールバック: mailtoを開く + PDFダウンロード
       const subject = encodeURIComponent(documentTitle);
       const body = encodeURIComponent(
         `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
