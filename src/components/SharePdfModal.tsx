@@ -104,37 +104,49 @@ export default function SharePdfModal({
     }
   };
 
-  // LINEで送る（モバイルはアプリ、PCはwindow.openで新しいタブ）
-  const shareLINE = () => {
+  // LINEで送る（Web Share API対応端末はPDF直接添付、非対応はLINE URL + ダウンロード）
+  const shareLINE = async () => {
     setSharing(true);
+    try {
+      const blob = await generatePdfBlob();
+      if (!blob) return;
+      const file = new File([blob], fileName, { type: "application/pdf" });
 
-    const message = encodeURIComponent(
-      `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
-    );
-
-    // モバイル判定
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      // モバイル: LINEアプリを直接開く
-      window.location.href = `https://line.me/R/share?text=${message}`;
-    } else {
-      // PC: 新しいタブで開く（現在のページから離れない）
-      const lineWindow = window.open(`https://line.me/R/share?text=${message}`, "_blank");
-      if (!lineWindow) {
-        showStatus("ポップアップがブロックされました。許可してください。");
+      // Web Share APIでPDFファイル共有を試行（LINEアプリにPDF直接添付可能）
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: documentTitle,
+          text: `${documentTitle}をお送りします。`,
+          files: [file],
+        });
+        showStatus("共有しました");
+        return;
       }
-    }
 
-    // その後PDFをダウンロード
-    generatePdfBlob().then((blob) => {
-      if (blob) {
-        downloadBlob(blob);
-        if (!isMobile) {
-          showStatus("PDFをダウンロードしました。LINEに添付してください。");
+      // Web Share API非対応: LINE URL + PDFダウンロード
+      const message = encodeURIComponent(
+        `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
+      );
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = `https://line.me/R/share?text=${message}`;
+      } else {
+        const lineWindow = window.open(`https://line.me/R/share?text=${message}`, "_blank");
+        if (!lineWindow) {
+          showStatus("ポップアップがブロックされました。許可してください。");
         }
       }
-    }).finally(() => setSharing(false));
+      downloadBlob(blob);
+      if (!isMobile) {
+        showStatus("PDFをダウンロードしました。LINEに添付してください。");
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        showStatus("共有に失敗しました");
+      }
+    } finally {
+      setSharing(false);
+    }
   };
 
   // PDFダウンロードのみ
