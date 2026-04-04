@@ -424,30 +424,89 @@ const DEMO_PROMPTS = [
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY || "";
 
+// Imagen API（高品質写実画像）で生成を試み、失敗したらGemini Nativeにフォールバック
+async function generateWithImagen(prompt: string): Promise<string | null> {
+  const models = ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"];
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": GEMINI_API_KEY,
+          },
+          body: JSON.stringify({
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: "3:2",
+              personGeneration: "dont_allow",
+            },
+          }),
+        }
+      );
+      if (!res.ok) {
+        console.warn(`[DemoImage] Imagen ${model} returned ${res.status}, trying next...`);
+        continue;
+      }
+      const data = await res.json();
+      const predictions = data.predictions;
+      if (predictions?.[0]?.bytesBase64Encoded) {
+        console.log(`[DemoImage] Generated with ${model}`);
+        return `data:image/png;base64,${predictions[0].bytesBase64Encoded}`;
+      }
+      console.warn(`[DemoImage] Imagen ${model} returned no image, trying next...`);
+    } catch (e) {
+      console.warn(`[DemoImage] Imagen ${model} error:`, e);
+    }
+  }
+  return null;
+}
+
+// Gemini Native Image（フォールバック）
+async function generateWithGemini(prompt: string): Promise<string | null> {
+  const models = ["gemini-2.0-flash-preview-image-generation", "gemini-2.0-flash-exp"];
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          }),
+        }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      const parts = data.candidates?.[0]?.content?.parts;
+      const img = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
+      if (img?.inlineData) {
+        console.log(`[DemoImage] Generated with ${model}`);
+        return `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function createDemoImageAI(index: number): Promise<string | null> {
   if (!GEMINI_API_KEY || index < 0 || index >= DEMO_PROMPTS.length) return null;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: DEMO_PROMPTS[index] }] }],
-          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-        }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const parts = data.candidates?.[0]?.content?.parts;
-    const img = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
-    if (!img?.inlineData) return null;
-    return `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`;
-  } catch {
-    return null;
-  }
+  const prompt = DEMO_PROMPTS[index];
+
+  // まずImagen（高品質）を試す → ダメならGemini Nativeにフォールバック
+  const result = await generateWithImagen(prompt);
+  if (result) return result;
+
+  console.warn(`[DemoImage] Imagen failed for index ${index}, falling back to Gemini...`);
+  return generateWithGemini(prompt);
 }
 
 export function createDemoImage(index: number): string {
