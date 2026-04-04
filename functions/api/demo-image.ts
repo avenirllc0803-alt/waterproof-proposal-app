@@ -1,10 +1,8 @@
 // Cloudflare Pages Function: /api/demo-image?index=0-3
-// Google Cloud Vertex AI (サービスアカウントJWT認証) で防水・塗装デモ画像を生成
+// Google AI Studio APIキーで防水・塗装デモ画像を生成
 
 interface Env {
-  GCP_SERVICE_ACCOUNT_KEY?: string;
-  GCP_PROJECT_ID?: string;
-  IMAGE_MODEL?: string;
+  GOOGLE_AI_API_KEY?: string;
 }
 
 const DEMO_PROMPTS = [
@@ -16,77 +14,6 @@ const DEMO_PROMPTS = [
 
   "Photorealistic close-up inspection photograph of deep structural cracks in a concrete wall of a Japanese building. A main vertical crack runs through the center with branching smaller cracks. White efflorescence deposits visible along crack edges. Exposed aggregate inside the crack. High detail concrete texture, professional building inspection photography, natural lighting, 3:2 aspect ratio.",
 ];
-
-function b64url(input: string): string {
-  return btoa(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-// ArrayBuffer to base64url
-function ab2b64url(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-// PEM private key → CryptoKey
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const pemBody = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
-  const binaryDer = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
-
-  return crypto.subtle.importKey(
-    "pkcs8",
-    binaryDer.buffer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-}
-
-async function getAccessToken(saKeyJson: string): Promise<string> {
-  const saKey = JSON.parse(saKeyJson);
-  const now = Math.floor(Date.now() / 1000);
-
-  const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = b64url(
-    JSON.stringify({
-      iss: saKey.client_email,
-      scope: "https://www.googleapis.com/auth/cloud-platform",
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-    })
-  );
-
-  const signInput = `${header}.${payload}`;
-  const key = await importPrivateKey(saKey.private_key);
-  const signatureBuffer = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    new TextEncoder().encode(signInput)
-  );
-  const signature = ab2b64url(signatureBuffer);
-  const jwt = `${signInput}.${signature}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  });
-
-  if (!tokenRes.ok) {
-    const errText = await tokenRes.text();
-    throw new Error(`Token exchange failed: ${errText}`);
-  }
-
-  const tokenData: { access_token: string } = await tokenRes.json();
-  return tokenData.access_token;
-}
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
@@ -101,49 +28,35 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return Response.json({ error: "index out of range (0-3)" }, { status: 400 });
   }
 
-  const saKey = context.env.GCP_SERVICE_ACCOUNT_KEY;
-  if (!saKey) {
+  const apiKey = context.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
     return Response.json(
-      { error: "GCP_SERVICE_ACCOUNT_KEY not configured" },
-      { status: 500 }
-    );
-  }
-
-  let token: string;
-  try {
-    token = await getAccessToken(saKey);
-  } catch (err) {
-    return Response.json(
-      { error: `Auth failed: ${(err as Error).message}` },
+      { error: "GOOGLE_AI_API_KEY not configured" },
       { status: 500 }
     );
   }
 
   try {
-    const projectId = context.env.GCP_PROJECT_ID || "gen-lang-client-0618000372";
-    const modelName = context.env.IMAGE_MODEL || "gemini-3.1-flash-image-preview";
-    const apiUrl = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/${modelName}:generateContent`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
 
     const response = await fetch(apiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: {
-          role: "USER",
-          parts: [{ text: DEMO_PROMPTS[index] }],
-        },
+        contents: [
+          {
+            parts: [{ text: DEMO_PROMPTS[index] }],
+          },
+        ],
         generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
+          responseModalities: ["IMAGE", "TEXT"],
         },
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Vertex AI error:", errText);
+      console.error("Google AI API error:", errText);
       return Response.json(
         { error: "Image generation failed", detail: errText },
         { status: response.status }
