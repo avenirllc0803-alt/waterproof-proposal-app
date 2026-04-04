@@ -186,6 +186,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("select");
   const [imageMode, setImageMode] = useState(false); // true=画像操作モード
+  const imageModeRef = useRef(false);
   const [handle, setHandle] = useState<HandleType>("none");
   const [shiftHeld, setShiftHeld] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
@@ -196,33 +197,35 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   const [cvs, setCvs] = useState({ width: 0, height: 0 });
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState("#FF0000");
-  const [fontSize] = useState(18);
+  const [fontSize, setFontSize] = useState(18);
+  const [pendingText, setPendingText] = useState("");
   const [zoom, setZoom] = useState(100);
   const baseScale = useRef(1);
+
+  // imageModeをrefに同期（イベントハンドラ内で最新値を参照するため）
+  useEffect(() => { imageModeRef.current = imageMode; }, [imageMode]);
 
   const sel = anns.find((a) => a.id === selId);
   const textAnns = anns.filter((a) => a.type === "text");
   const shapeAnns = anns.filter((a) => a.type !== "text");
 
-  // 注釈画面全体でページスクロール・バウンスを完全に防止（iPad/iPhone対応）
+  // 注釈画面全体でページスクロール・バウンスを防止（iPad/iPhone対応）
+  // touchmoveリスナーではなくCSS制御を使用（ボタンタップの確実性を保証）
   useEffect(() => {
-    const preventScroll = (e: TouchEvent) => {
-      // 画像操作モード中のcontainer内ピンチは許可
-      if (imageMode && containerRef.current?.contains(e.target as Node) && e.touches.length === 2) return;
-      // テキスト入力欄は通常操作許可
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      // ツールバーのボタン・スライダーはタッチ操作を許可（click合成を壊さない）
-      const tag = (e.target as HTMLElement)?.closest?.("button, input[type=range]");
-      if (tag) return;
-      e.preventDefault();
-    };
-    document.body.style.overflow = "hidden";
-    document.addEventListener("touchmove", preventScroll, { passive: false });
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = { htmlOv: html.style.overflow, bodyOv: body.style.overflow, htmlOsb: html.style.overscrollBehavior, bodyOsb: body.style.overscrollBehavior };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
     return () => {
-      document.body.style.overflow = "";
-      document.removeEventListener("touchmove", preventScroll);
+      html.style.overflow = prev.htmlOv;
+      body.style.overflow = prev.bodyOv;
+      html.style.overscrollBehavior = prev.htmlOsb;
+      body.style.overscrollBehavior = prev.bodyOsb;
     };
-  }, [imageMode]);
+  }, []);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -244,7 +247,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     const container = containerRef.current;
     if (!container) return;
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 2 && imageModeRef.current) {
         e.preventDefault();
         pinchRef.current.lastDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -254,7 +257,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       }
     };
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && pinchRef.current.active) {
+      if (e.touches.length === 2 && pinchRef.current.active && imageModeRef.current) {
         e.preventDefault();
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -402,6 +405,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (imageMode) return; // 画像操作モード中は描画しない
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
       e.preventDefault();
@@ -409,13 +413,12 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
     const p = getPos(e);
 
     if (tool === "text") {
-      // 画面タップでpromptダイアログを表示して入力
-      const text = window.prompt("テキストを入力してください");
-      if (text && text.trim()) {
+      // 入力欄のテキストを配置
+      if (pendingText.trim()) {
         const id = Date.now().toString();
-        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: text.trim(), color, fontSize, boxed: false }]);
+        setAnns((prev) => [...prev, { id, type: "text", x: p.x, y: p.y, text: pendingText.trim(), color, fontSize, boxed: false }]);
         setSelId(id);
-        setTool("select");
+        setPendingText("");
       }
       return;
     }
@@ -440,6 +443,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   };
 
   const handleCanvasMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (imageMode) return; // 画像操作モード中は描画しない
     if ("touches" in e) {
       if (e.touches.length >= 2) return;
       e.preventDefault();
@@ -705,10 +709,18 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
-      {/* テキストモード時のガイド表示 */}
-      {tool === "text" && (
-        <div className="px-3 py-2 bg-yellow-900 border-t border-yellow-700 text-center flex-shrink-0" style={{ touchAction: "manipulation" }}>
-          <span className="text-yellow-200 text-sm font-bold">画面をタップして文字を配置</span>
+      {/* テキスト入力欄（画面下部固定） */}
+      {tool === "text" && !imageMode && (
+        <div className="flex items-center gap-2 px-2 py-2 bg-yellow-900 border-t border-yellow-700 flex-shrink-0" style={{ touchAction: "auto" }}>
+          <span className="text-yellow-200 text-sm font-bold flex-shrink-0">文字:</span>
+          <input
+            type="text" value={pendingText} onChange={(e) => setPendingText(e.target.value)}
+            placeholder="入力してから画面をタップで配置"
+            className="flex-1 px-3 py-2 rounded-lg text-base border-2 border-yellow-400 bg-white"
+          />
+          <span className="text-yellow-200 text-xs flex-shrink-0">サイズ:</span>
+          <input type="range" min={10} max={60} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-16 accent-yellow-400" style={{ touchAction: "manipulation" }} />
+          <span className="text-yellow-200 text-sm font-bold">{fontSize}px</span>
         </div>
       )}
 
