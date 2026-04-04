@@ -4,14 +4,49 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, ProposalSection } from "@/types";
 import { dummySections } from "@/data/templates";
-import { createDemoImage, createDemoImageAI } from "@/lib/demoImages";
 import SectionEditor from "@/components/SectionEditor";
+
+/** デモ用の事前生成済み画像パス */
+const DEMO_IMAGES = [
+  "/demo/rooftop.jpg",
+  "/demo/rust.jpg",
+  "/demo/balcony.jpg",
+  "/demo/crack.jpg",
+];
+
+/** dataURLをリ��イズ・JPEG圧縮して容量を削減 */
+function compressDataUrl(dataUrl: string, maxWidth: number, quality: number): Promise<string> {
+  if (!dataUrl || !dataUrl.startsWith("data:image")) return Promise.resolve(dataUrl);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > maxWidth) {
+          h = Math.round(h * (maxWidth / w));
+          w = maxWidth;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 
 export default function EditPage() {
   const router = useRouter();
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [sections, setSections] = useState<ProposalSection[]>([]);
-  const [demoLoading, setDemoLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     // リロード検知: アプリ内遷移フラグがなければトップへ
@@ -27,33 +62,17 @@ export default function EditPage() {
     if (useDemo === "true") {
       sessionStorage.removeItem("useDemo");
 
-      // まずCanvas生成の仮画像で即座に表示
+      // 事前生成済みの静的画像を使って即座に表示
       const initialData: ProposalSection[] = dummySections.map((ds, i) => ({
         id: `demo-${i}`,
-        imageUrl: createDemoImage(i),
+        imageUrl: DEMO_IMAGES[i] || DEMO_IMAGES[0],
         imageName: ds.imageName,
         annotations: [],
         description: ds.description,
       }));
       setSections(initialData);
-
-      // Gemini APIでリアルな画像を非同期生成して差し替え
-      setDemoLoading(true);
-      Promise.allSettled(
-        dummySections.map((_, i) => createDemoImageAI(i))
-      ).then((results) => {
-        setSections((prev) =>
-          prev.map((s, i) => {
-            const result = results[i];
-            if (result.status === "fulfilled" && result.value) {
-              return { ...s, imageUrl: result.value, annotatedImageUrl: undefined };
-            }
-            return s;
-          })
-        );
-        setDemoLoading(false);
-      });
     }
+    setIsReady(true);
   }, [router]);
 
   const addSection = () => {
@@ -87,13 +106,53 @@ export default function EditPage() {
     });
   };
 
-  const goToPreview = () => {
-    sessionStorage.setItem("sections", JSON.stringify(sections));
-    sessionStorage.setItem("__nav", "1");
-    router.push("/preview");
+  const [navigating, setNavigating] = useState(false);
+
+  const goToPreview = async () => {
+    if (navigating) return;
+    setNavigating(true);
+    try {
+      // 画像が大きすぎるとsessionStorage上限(5MB)を超えるため、リサイズして保存
+      const compressedSections = await Promise.all(
+        sections.map(async (s) => ({
+          ...s,
+          imageUrl: await compressDataUrl(s.imageUrl, 800, 0.7),
+          annotatedImageUrl: s.annotatedImageUrl
+            ? await compressDataUrl(s.annotatedImageUrl, 800, 0.7)
+            : undefined,
+        }))
+      );
+      sessionStorage.setItem("sections", JSON.stringify(compressedSections));
+      sessionStorage.setItem("__nav", "1");
+      router.push("/preview");
+    } catch (e) {
+      console.error("[Preview] sessionStorage error:", e);
+      // 圧縮なしでリトライ（容量不足ならアラート）
+      try {
+        sessionStorage.setItem("sections", JSON.stringify(sections));
+        sessionStorage.setItem("__nav", "1");
+        router.push("/preview");
+      } catch {
+        alert("データが大きすぎてプレビューに移動できません。セクション数を減らすか、画像を小さくしてください。");
+      }
+    } finally {
+      setNavigating(false);
+    }
   };
 
-  if (!customerInfo) return null;
+  if (!customerInfo || !isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <svg className="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-gray-500">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-28">
@@ -156,15 +215,6 @@ export default function EditPage() {
               : `${sections.length}件のセクションがあります。写真を追加して、説明文を入力またはテンプレートから選んでください。`}
           </p>
         </div>
-        {demoLoading && (
-          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-center gap-2">
-            <svg className="animate-spin h-5 w-5 text-amber-600" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            <span className="text-amber-700 text-sm font-medium">AI画像を生成中...（完了後に自動で差し替わります）</span>
-          </div>
-        )}
       </div>
 
       {/* Sections */}
@@ -205,7 +255,6 @@ export default function EditPage() {
 
         <button
           onClick={addSection}
-          onPointerDown={addSection}
           className="w-full py-5 border-3 border-dashed border-gray-300 rounded-2xl text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors font-bold text-lg"
           style={{ borderWidth: "3px", touchAction: "manipulation", minHeight: 56 }}
         >
@@ -219,7 +268,6 @@ export default function EditPage() {
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-7xl mx-auto">
             <button
               onClick={goToPreview}
-              onPointerDown={() => goToPreview()}
               className="w-full bg-blue-600 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-lg"
               style={{ touchAction: "manipulation", minHeight: 56 }}
             >
