@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Gemini 2.0 Flash で画像生成（maikoプロジェクトと同じVertex AI方式）
-    const modelName = process.env.IMAGE_MODEL || "gemini-2.0-flash-exp";
+    // Gemini で画像生成（maikoプロジェクトと同じVertex AI方式）
+    const modelName = process.env.IMAGE_MODEL || "gemini-3.1-flash-image-preview";
     const url = `https://aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/global/publishers/google/models/${modelName}:generateContent`;
 
     const response = await fetch(url, {
