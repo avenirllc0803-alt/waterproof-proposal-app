@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, ProposalSection } from "@/types";
 import { dummySections } from "@/data/templates";
-import { createDemoImage } from "@/lib/demoImages";
+import { createDemoImage, createDemoImageAI } from "@/lib/demoImages";
 import SectionEditor from "@/components/SectionEditor";
 
 export default function EditPage() {
@@ -37,14 +37,10 @@ export default function EditPage() {
       }));
       setSections(initialData);
 
-      // Google AI APIでリアルな画像を非同期生成して差し替え
+      // Gemini APIでリアルな画像を非同期生成して差し替え
       setDemoLoading(true);
       Promise.allSettled(
-        dummySections.map((_, i) =>
-          fetch(`/api/demo-image?index=${i}`)
-            .then((res) => res.ok ? res.json() : null)
-            .then((data) => data?.imageUrl || null)
-        )
+        dummySections.map((_, i) => createDemoImageAI(i))
       ).then((results) => {
         setSections((prev) =>
           prev.map((s, i) => {
