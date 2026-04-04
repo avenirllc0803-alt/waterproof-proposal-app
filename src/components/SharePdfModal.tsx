@@ -23,7 +23,7 @@ export default function SharePdfModal({
 
   const showStatus = (msg: string) => {
     setStatus(msg);
-    setTimeout(() => setStatus(null), 3000);
+    setTimeout(() => setStatus(null), 4000);
   };
 
   const downloadBlob = (blob: Blob) => {
@@ -37,7 +37,7 @@ export default function SharePdfModal({
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
 
-  // Web Share API でPDFファイルを共有（モバイル対応）
+  // アプリで共有（Web Share API）— 共有シートからアプリを選べる
   const shareNative = async () => {
     setSharing(true);
     try {
@@ -53,92 +53,13 @@ export default function SharePdfModal({
         });
         showStatus("共有しました");
       } else {
-        await navigator.share({
-          title: documentTitle,
-          text: `${documentTitle}をお送りします。PDFファイルは別途添付いたします。`,
-        });
-        showStatus("テキストを共有しました");
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name !== "AbortError") {
-        showStatus("共有に失敗しました");
-      }
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  // メールで送る（Web Share API対応端末はPDF直接添付、非対応はmailto+ダウンロード）
-  const shareEmail = async () => {
-    setSharing(true);
-    try {
-      const blob = await generatePdfBlob();
-      if (!blob) return;
-      const file = new File([blob], fileName, { type: "application/pdf" });
-
-      // Web Share APIでPDFファイル共有を試行（メールアプリに直接添付可能）
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: documentTitle,
-          text: `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`,
-          files: [file],
-        });
-        showStatus("共有しました");
-        return;
-      }
-
-      // Web Share API非対応: mailto + PDFダウンロード
-      const subject = encodeURIComponent(documentTitle);
-      const body = encodeURIComponent(
-        `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
-      );
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      downloadBlob(blob);
-      showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name !== "AbortError") {
-        showStatus("共有に失敗しました");
-      }
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  // LINEで送る（Web Share API対応端末はPDF直接添付、非対応はLINE URL + ダウンロード）
-  const shareLINE = async () => {
-    setSharing(true);
-    try {
-      const blob = await generatePdfBlob();
-      if (!blob) return;
-      const file = new File([blob], fileName, { type: "application/pdf" });
-
-      // Web Share APIでPDFファイル共有を試行（LINEアプリにPDF直接添付可能）
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // ファイル共有非対応: テキストのみ共有 + PDFダウンロード
+        downloadBlob(blob);
         await navigator.share({
           title: documentTitle,
           text: `${documentTitle}をお送りします。`,
-          files: [file],
         });
-        showStatus("共有しました");
-        return;
-      }
-
-      // Web Share API非対応: LINE URL + PDFダウンロード
-      const message = encodeURIComponent(
-        `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
-      );
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        window.location.href = `https://line.me/R/share?text=${message}`;
-      } else {
-        const lineWindow = window.open(`https://line.me/R/share?text=${message}`, "_blank");
-        if (!lineWindow) {
-          showStatus("ポップアップがブロックされました。許可してください。");
-        }
-      }
-      downloadBlob(blob);
-      if (!isMobile) {
-        showStatus("PDFをダウンロードしました。LINEに添付してください。");
+        showStatus("PDFをダウンロードしました。添付してください。");
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
@@ -147,6 +68,50 @@ export default function SharePdfModal({
     } finally {
       setSharing(false);
     }
+  };
+
+  // LINEで送る — LINEアプリ/サイトを直接開く + PDFダウンロード
+  const shareLINE = () => {
+    setSharing(true);
+
+    const message = encodeURIComponent(
+      `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
+    );
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      window.location.href = `https://line.me/R/share?text=${message}`;
+    } else {
+      const w = window.open(`https://line.me/R/share?text=${message}`, "_blank");
+      if (!w) showStatus("ポップアップがブロックされました。許可してください。");
+    }
+
+    // PDFをダウンロード（LINEに手動添付）
+    generatePdfBlob().then((blob) => {
+      if (blob) {
+        downloadBlob(blob);
+        showStatus("PDFをダウンロードしました。LINEに添付してください。");
+      }
+    }).finally(() => setSharing(false));
+  };
+
+  // メールで送る — メールアプリを直接開く + PDFダウンロード
+  const shareEmail = () => {
+    setSharing(true);
+
+    const subject = encodeURIComponent(documentTitle);
+    const body = encodeURIComponent(
+      `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+
+    // PDFをダウンロード（メールに手動添付）
+    generatePdfBlob().then((blob) => {
+      if (blob) {
+        downloadBlob(blob);
+        showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
+      }
+    }).finally(() => setSharing(false));
   };
 
   // PDFダウンロードのみ
@@ -220,7 +185,7 @@ export default function SharePdfModal({
                 </span>
                 <div>
                   <p className="text-sm font-bold text-gray-800">LINEで送る</p>
-                  <p className="text-xs text-gray-500">LINEを開いてメッセージを送信</p>
+                  <p className="text-xs text-gray-500">LINEを開いてPDFを自動ダウンロード</p>
                 </div>
               </button>
 
