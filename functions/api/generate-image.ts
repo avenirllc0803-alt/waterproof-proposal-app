@@ -36,7 +36,7 @@ async function generateWithImagen(
             instances: [{ prompt }],
             parameters: {
               sampleCount: 1,
-              aspectRatio: "3:2",
+              aspectRatio: "4:3",
               personGeneration: "dont_allow",
             },
           }),
