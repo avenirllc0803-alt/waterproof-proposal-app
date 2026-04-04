@@ -70,48 +70,89 @@ export default function SharePdfModal({
     }
   };
 
-  // LINEで送る — LINEアプリ/サイトを直接開く + PDFダウンロード
-  const shareLINE = () => {
-    setSharing(true);
-
-    const message = encodeURIComponent(
-      `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
-    );
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      window.location.href = `https://line.me/R/share?text=${message}`;
-    } else {
-      const w = window.open(`https://line.me/R/share?text=${message}`, "_blank");
-      if (!w) showStatus("ポップアップがブロックされました。許可してください。");
-    }
-
-    // PDFをダウンロード（LINEに手動添付）
-    generatePdfBlob().then((blob) => {
-      if (blob) {
-        downloadBlob(blob);
-        showStatus("PDFをダウンロードしました。LINEに添付してください。");
+  // Web Share APIでPDF付き共有シートを開く共通関数
+  // 成功したらtrue、失敗したらfalseを返す
+  const tryShareWithFile = async (blob: Blob, text: string): Promise<boolean> => {
+    try {
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: documentTitle,
+          text,
+          files: [file],
+        });
+        return true;
       }
-    }).finally(() => setSharing(false));
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        // ユーザーがキャンセル — 成功扱い（フォールバック不要）
+        return true;
+      }
+      console.warn("[Share] Web Share API failed, falling back:", err);
+    }
+    return false;
   };
 
-  // メールで送る — メールアプリを直接開く + PDFダウンロード
-  const shareEmail = () => {
+  // LINEで送る — まずWeb Share API、失敗時はLINE URL + PDFダウンロード
+  const shareLINE = async () => {
     setSharing(true);
+    try {
+      const blob = await generatePdfBlob();
+      if (!blob) return;
 
-    const subject = encodeURIComponent(documentTitle);
-    const body = encodeURIComponent(
-      `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-
-    // PDFをダウンロード（メールに手動添付）
-    generatePdfBlob().then((blob) => {
-      if (blob) {
-        downloadBlob(blob);
-        showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
+      // Web Share APIを試行（PDF付き共有シートからLINEを選べる）
+      const shared = await tryShareWithFile(blob, `${documentTitle}をお送りします。`);
+      if (shared) {
+        showStatus("共有しました");
+        return;
       }
-    }).finally(() => setSharing(false));
+
+      // フォールバック: LINE URLを開く + PDFダウンロード
+      const message = encodeURIComponent(
+        `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
+      );
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = `https://line.me/R/share?text=${message}`;
+      } else {
+        const w = window.open(`https://line.me/R/share?text=${message}`, "_blank");
+        if (!w) showStatus("ポップアップがブロックされました。許可してください。");
+      }
+      downloadBlob(blob);
+      showStatus("PDFをダウンロードしました。LINEに添付してください。");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // メールで送る — まずWeb Share API、失敗時はmailto + PDFダウンロード
+  const shareEmail = async () => {
+    setSharing(true);
+    try {
+      const blob = await generatePdfBlob();
+      if (!blob) return;
+
+      // Web Share APIを試行（PDF付き共有シートからメールを選べる）
+      const shared = await tryShareWithFile(
+        blob,
+        `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
+      );
+      if (shared) {
+        showStatus("共有しました");
+        return;
+      }
+
+      // フォールバック: mailtoを開く + PDFダウンロード
+      const subject = encodeURIComponent(documentTitle);
+      const body = encodeURIComponent(
+        `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
+      );
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      downloadBlob(blob);
+      showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
+    } finally {
+      setSharing(false);
+    }
   };
 
   // PDFダウンロードのみ
