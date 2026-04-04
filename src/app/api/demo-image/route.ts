@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { execSync } from "child_process";
+import crypto from "crypto";
 
 const PROJECT_ID = process.env.GCP_PROJECT_ID || "gen-lang-client-0618000372";
 
@@ -17,7 +17,62 @@ const DEMO_PROMPTS = [
   "Photorealistic close-up inspection photograph of deep structural cracks in a concrete wall of a Japanese building. A main vertical crack runs through the center with branching smaller cracks. White efflorescence deposits visible along crack edges. Exposed aggregate inside the crack. High detail concrete texture, professional building inspection photography, natural lighting, 3:2 aspect ratio.",
 ];
 
-function getGcloudToken(): string {
+// Base64URL encode
+function b64url(data: Buffer | string): string {
+  const buf = typeof data === "string" ? Buffer.from(data) : data;
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// サービスアカウントJSONからOAuth2アクセストークンを取得
+async function getAccessTokenFromServiceAccount(): Promise<string> {
+  const saKeyJson = process.env.GCP_SERVICE_ACCOUNT_KEY;
+  if (!saKeyJson) {
+    throw new Error("GCP_SERVICE_ACCOUNT_KEY が設定されていません");
+  }
+
+  const saKey = JSON.parse(saKeyJson);
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = b64url(JSON.stringify({
+    iss: saKey.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  }));
+
+  const signInput = `${header}.${payload}`;
+  const sign = crypto.createSign("RSA-SHA256");
+  sign.update(signInput);
+  const signature = b64url(sign.sign(saKey.private_key));
+
+  const jwt = `${signInput}.${signature}`;
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    throw new Error(`Token exchange failed: ${errText}`);
+  }
+
+  const tokenData = await tokenRes.json();
+  return tokenData.access_token;
+}
+
+// ローカル開発: gcloud CLI、本番: サービスアカウントJSON
+async function getAccessToken(): Promise<string> {
+  // サービスアカウントキーが設定されていればそちらを使用（Vercel等）
+  if (process.env.GCP_SERVICE_ACCOUNT_KEY) {
+    return getAccessTokenFromServiceAccount();
+  }
+
+  // ローカル開発: gcloud auth print-access-token
+  const { execSync } = await import("child_process");
   const gcloudPaths = [
     "/opt/homebrew/bin/gcloud",
     "/usr/local/bin/gcloud",
@@ -34,7 +89,7 @@ function getGcloudToken(): string {
       continue;
     }
   }
-  throw new Error("gcloud認証に失敗しました。'gcloud auth login' を実行してください。");
+  throw new Error("認証に失敗しました。GCP_SERVICE_ACCOUNT_KEY環境変数を設定するか、gcloud auth loginを実行してください。");
 }
 
 export async function GET(request: NextRequest) {
@@ -52,7 +107,7 @@ export async function GET(request: NextRequest) {
 
   let token: string;
   try {
-    token = getGcloudToken();
+    token = await getAccessToken();
   } catch (err) {
     return NextResponse.json(
       { error: (err as Error).message },
