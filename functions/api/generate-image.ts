@@ -13,6 +13,9 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+// デバッグ用エラーログ
+const errors: string[] = [];
+
 // Imagen API（高品質写実画像）
 async function generateWithImagen(
   prompt: string,
@@ -39,13 +42,18 @@ async function generateWithImagen(
           }),
         }
       );
-      if (!res.ok) continue;
+      if (!res.ok) {
+        const body = await res.text();
+        errors.push(`Imagen ${model}: ${res.status} ${body.slice(0, 200)}`);
+        continue;
+      }
       const data = await res.json();
       if (data.predictions?.[0]?.bytesBase64Encoded) {
         return `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
       }
-    } catch {
-      continue;
+      errors.push(`Imagen ${model}: no image in response`);
+    } catch (e) {
+      errors.push(`Imagen ${model}: ${String(e)}`);
     }
   }
   return null;
@@ -73,7 +81,11 @@ async function generateWithGemini(
           }),
         }
       );
-      if (!res.ok) continue;
+      if (!res.ok) {
+        const body = await res.text();
+        errors.push(`Gemini ${model}: ${res.status} ${body.slice(0, 200)}`);
+        continue;
+      }
       const data = await res.json();
       const parts = data.candidates?.[0]?.content?.parts;
       const img = parts?.find(
@@ -82,8 +94,9 @@ async function generateWithGemini(
       if (img?.inlineData) {
         return `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`;
       }
-    } catch {
-      continue;
+      errors.push(`Gemini ${model}: no image in response`);
+    } catch (e) {
+      errors.push(`Gemini ${model}: ${String(e)}`);
     }
   }
   return null;
@@ -111,6 +124,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // APIキーの先頭4文字をデバッグ用に記録
+    errors.length = 0;
+    errors.push(`apiKey: ${apiKey.slice(0, 4)}...（${apiKey.length}文字）`);
+
     // Imagen → Gemini フォールバック
     const result =
       (await generateWithImagen(prompt, apiKey)) ||
@@ -124,12 +141,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Image generation failed" }),
+      JSON.stringify({ error: "Image generation failed", details: errors }),
       { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: "Internal error" }),
+      JSON.stringify({ error: "Internal error", details: [...errors, String(e)] }),
       { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
   }
