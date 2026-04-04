@@ -591,27 +591,20 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
   });
 
   return createPortal(
-    <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 9999, height: "100dvh", overscrollBehavior: "none" }}>
-      {/* ツールバー 上段: ツール選択 + アクションボタン */}
+    <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 9999, height: "100dvh", overscrollBehavior: "none", paddingTop: "env(safe-area-inset-top)" }}>
+      {/* ツールバー 上段: アクションボタン（常に表示） */}
       <div className="flex items-center justify-between px-2 py-1 bg-gray-900 gap-1 flex-shrink-0" style={{ minHeight: 44, touchAction: "manipulation" }}>
-        <div className="flex gap-1 items-center flex-wrap">
+        <div className="flex gap-1 items-center">
           <button {...penBtn(() => { setImageMode(!imageMode); })}
             className={`rounded text-sm font-bold ${imageMode ? "bg-green-500 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
             style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
             {imageMode ? "📌固定中" : "📌固定"}
           </button>
-          {allTools.map((t) => (
-            <button key={t.id} {...penBtn(() => { setTool(t.id); if (t.id !== "select") setSelId(null); })}
-              className={`rounded text-sm font-medium ${tool === t.id ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
-              style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 items-center flex-shrink-0">
           {selId && <button {...penBtn(() => { setAnns((p) => p.filter((a) => a.id !== selId)); setSelId(null); })}
             className="bg-red-600 text-white rounded text-sm font-bold active:bg-red-700"
             style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>削除</button>}
+        </div>
+        <div className="flex gap-1 items-center flex-shrink-0">
           <button {...penBtn(() => { setAnns((p) => p.slice(0, -1)); setSelId(null); })}
             className="bg-gray-700 text-gray-300 rounded text-sm active:bg-gray-500"
             style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>↩</button>
@@ -626,16 +619,29 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         </div>
       </div>
 
-      {/* ツールバー 下段: カラー + ズーム */}
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-800 border-t border-gray-700 gap-2 flex-shrink-0" style={{ minHeight: 40, touchAction: "manipulation" }}>
-        <div className="flex gap-1.5 items-center">
+      {/* ツールバー 中段: ツール選択 */}
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-800 border-t border-gray-700 gap-1 flex-shrink-0" style={{ minHeight: 44, touchAction: "manipulation" }}>
+        <div className="flex gap-1 items-center flex-wrap">
+          {allTools.map((t) => (
+            <button key={t.id} {...penBtn(() => { setTool(t.id); if (t.id !== "select") setSelId(null); })}
+              className={`rounded text-sm font-medium ${tool === t.id ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 active:bg-gray-500"}`}
+              style={{ minWidth: 44, minHeight: 44, padding: "0 10px", touchAction: "manipulation" }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5 items-center flex-shrink-0">
           {COLORS.map((c) => (
             <button key={c.v} {...penBtn(() => { setColor(c.v); if (selId) updateSel({ color: c.v }); })}
               className={`rounded-full border-2 ${color === c.v ? "border-white scale-110" : "border-gray-600"}`}
-              style={{ width: 28, height: 28, minWidth: 28, minHeight: 28, backgroundColor: c.v, touchAction: "manipulation" }}
+              style={{ width: 26, height: 26, minWidth: 26, minHeight: 26, backgroundColor: c.v, touchAction: "manipulation" }}
               title={c.l} />
           ))}
         </div>
+      </div>
+
+      {/* ツールバー 下段: ズーム */}
+      <div className="flex items-center justify-end px-2 py-1 bg-gray-800 border-t border-gray-700 gap-2 flex-shrink-0" style={{ minHeight: 36, touchAction: "manipulation" }}>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <span className="text-gray-400 text-sm">画像:</span>
           <input type="range" min={50} max={200} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-20 accent-green-500" style={{ minHeight: 28, touchAction: "manipulation" }} />

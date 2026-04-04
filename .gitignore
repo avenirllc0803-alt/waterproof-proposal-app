@@ -2,3 +2,5 @@ node_modules/
 .next/
 tsconfig.tsbuildinfo
 out/
+.env.local
+.env*.local
