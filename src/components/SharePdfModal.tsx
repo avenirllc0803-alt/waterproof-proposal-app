@@ -101,6 +101,34 @@ export default function SharePdfModal({
     }
   };
 
+  // Gmailで送る（iOSのWeb Share API経由だとGmail share extensionが不安定なため直接起動）
+  const shareViaGmail = async () => {
+    setSharing(true);
+    try {
+      const blob = await getBlob();
+      if (!blob) return;
+      downloadBlob(blob);
+      // Gmail作成画面を直接開く
+      const subject = encodeURIComponent(documentTitle);
+      const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
+      // iOSではGmailアプリのURLスキームを試み、失敗時はWeb版にフォールバック
+      const gmailAppUrl = `googlegmail:///co?subject=${subject}&body=${body}`;
+      const gmailWebUrl = `https://mail.google.com/mail/?view=cm&su=${subject}&body=${body}`;
+
+      // Gmailアプリを試行
+      const opened = window.open(gmailAppUrl, "_blank");
+      if (!opened) {
+        window.open(gmailWebUrl, "_blank");
+      }
+      showStatus("PDFをダウンロードしました。Gmailに添付してください");
+    } catch {
+      showStatus("送信の準備に失敗しました");
+    } finally {
+      setSharing(false);
+      setOpen(false);
+    }
+  };
+
   // PDFダウンロードのみ
   const downloadPdf = async () => {
     setSharing(true);
@@ -177,6 +205,24 @@ export default function SharePdfModal({
                   </div>
                 </button>
               )}
+
+              {/* Gmailで送る — iOS share extensionの不具合回避用 */}
+              <button
+                onClick={() => shareViaGmail()}
+                disabled={!pdfReady}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-red-50 active:bg-red-100" : "opacity-50 cursor-wait"}`}
+              >
+                <span className="w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-full text-lg flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
+                    <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-bold text-gray-800">Gmailで送る</p>
+                  <p className="text-xs text-gray-500">PDFダウンロード後にGmailを起動</p>
+                </div>
+              </button>
 
               {/* ダウンロードのみ — 全デバイス共通 */}
               <button
