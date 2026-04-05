@@ -21,6 +21,13 @@ export default function SharePdfModal({
   const [pdfReady, setPdfReady] = useState(false);
   const cachedBlobRef = useRef<Blob | null>(null);
   const sharingRef = useRef(false);
+  const generatingRef = useRef(false);
+  const generatePdfBlobRef = useRef(generatePdfBlob);
+
+  // 最新のgeneratePdfBlobを参照するが、useCallbackの依存には入れない
+  useEffect(() => {
+    generatePdfBlobRef.current = generatePdfBlob;
+  }, [generatePdfBlob]);
 
   const bgClass = theme === "orange" ? "bg-orange-600 hover:bg-orange-700 active:bg-orange-800" : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800";
 
@@ -31,18 +38,22 @@ export default function SharePdfModal({
 
   // モーダルを開いた時点でPDFを事前生成してキャッシュ
   const preGeneratePdf = useCallback(async () => {
+    if (generatingRef.current) return; // 二重実行防止
+    generatingRef.current = true;
     setPdfReady(false);
     cachedBlobRef.current = null;
     try {
-      const blob = await generatePdfBlob();
+      const blob = await generatePdfBlobRef.current();
       if (blob) {
         cachedBlobRef.current = blob;
         setPdfReady(true);
       }
     } catch (err) {
       console.warn("[SharePdfModal] PDF pre-generation failed:", err);
+    } finally {
+      generatingRef.current = false;
     }
-  }, [generatePdfBlob]);
+  }, []); // 依存なし — generatePdfBlobはrefで参照
 
   useEffect(() => {
     if (open) {
@@ -92,42 +103,54 @@ export default function SharePdfModal({
   // アプリで共有（Web Share API）— 共有シートからLINE・Gmail等を選べる
   // files + title + text を一緒に渡すことでGmail等のメールアプリがPDFを正しく処理できるようにする
   const shareNative = async () => {
-    const blob = await getBlob();
-    if (!blob) return;
-    const file = new File([blob], fileName, { type: "application/pdf" });
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const blob = await getBlob();
+      if (!blob) return;
+      const file = new File([blob], fileName, { type: "application/pdf" });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await doShare({
-        files: [file],
-        title: documentTitle,
-        text: `${documentTitle}をお送りします。`,
-      });
-    } else if (typeof navigator.share === "function") {
-      downloadBlob(blob);
-      await doShare({ title: documentTitle, text: `${documentTitle}をお送りします。` });
-    } else {
-      downloadBlob(blob);
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await doShare({
+          files: [file],
+          title: documentTitle,
+          text: `${documentTitle}をお送りします。`,
+        });
+      } else if (typeof navigator.share === "function") {
+        downloadBlob(blob);
+        await doShare({ title: documentTitle, text: `${documentTitle}をお送りします。` });
+      } else {
+        downloadBlob(blob);
+      }
+    } finally {
+      setSharing(false);
     }
   };
 
   // メールで送る（PDFダウンロード + mailto:でメール作成画面を同時に開く）
   // mailto:はページ遷移ではなくOSのメールハンドラ起動なのでダウンロードと干渉しない
   const shareViaMail = async () => {
-    const blob = await getBlob();
-    if (!blob) return;
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const blob = await getBlob();
+      if (!blob) return;
 
-    // 1. PDFダウンロードを開始
-    downloadBlob(blob);
+      // 1. PDFダウンロードを開始
+      downloadBlob(blob);
 
-    // 2. mailto:でメールアプリを起動（少し遅延してダウンロード開始を確実に）
-    const subject = encodeURIComponent(documentTitle);
-    const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
-    setTimeout(() => {
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    }, 500);
+      // 2. mailto:でメールアプリを起動（少し遅延してダウンロード開始を確実に）
+      const subject = encodeURIComponent(documentTitle);
+      const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
+      setTimeout(() => {
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      }, 500);
 
-    showStatus("PDFをダウンロードしました");
-    setOpen(false);
+      showStatus("PDFをダウンロードしました");
+      setOpen(false);
+    } finally {
+      setSharing(false);
+    }
   };
 
   // PDFダウンロードのみ
