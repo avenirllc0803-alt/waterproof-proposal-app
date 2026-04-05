@@ -9,11 +9,29 @@ import SharePdfModal from "@/components/SharePdfModal";
 export default function EstimatePage() {
   const router = useRouter();
   const previewRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
   const [step, setStep] = useState<"info" | "items" | "preview">("info");
   const [generating, setGenerating] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const itemNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // A4幅(794px)をモバイル画面に収めるスケーリング
+  const updatePreviewScale = useCallback(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+    const availableWidth = container.clientWidth - 32;
+    setPreviewScale(Math.min(1, availableWidth / 794));
+  }, []);
+
+  useEffect(() => {
+    if (step !== "preview") return;
+    updatePreviewScale();
+    window.addEventListener("resize", updatePreviewScale);
+    return () => window.removeEventListener("resize", updatePreviewScale);
+  }, [step, updatePreviewScale]);
+
   const [form, setForm] = useState<CustomerInfo>({
     customerName: "",
     propertyName: "",
@@ -515,8 +533,9 @@ export default function EstimatePage() {
         </div>
       </div>
 
-      <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto p-4 lg:px-12 xl:px-16">
-        <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "32px", minHeight: "297mm", maxWidth: "210mm", margin: "0 auto" }}>
+      <div ref={previewContainerRef} className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto p-4 lg:px-12 xl:px-16 flex justify-center">
+        <div style={{ width: 794 * previewScale, overflow: "hidden" }}>
+        <div ref={previewRef} className="bg-white shadow-lg origin-top-left" style={{ width: 794, padding: "32px", boxSizing: "border-box", transform: `scale(${previewScale})` }}>
           {/* 見積書ヘッダー */}
           <h1 data-pdf-section className="text-2xl font-bold text-center mb-4 tracking-widest">御 見 積 書</h1>
 
@@ -592,6 +611,7 @@ export default function EstimatePage() {
               <p className="text-xs text-gray-600 whitespace-pre-wrap">{notes}</p>
             </div>
           )}
+        </div>
         </div>
       </div>
 

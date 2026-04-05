@@ -127,31 +127,10 @@ export default function SharePdfModal({
     }
   };
 
-  // メールで送る（PDFダウンロード + mailto:でメール作成画面を同時に開く）
-  // mailto:はページ遷移ではなくOSのメールハンドラ起動なのでダウンロードと干渉しない
-  const shareViaMail = async () => {
-    if (sharing) return;
-    setSharing(true);
-    try {
-      const blob = await getBlob();
-      if (!blob) return;
-
-      // 1. PDFダウンロードを開始
-      downloadBlob(blob);
-
-      // 2. mailto:でメールアプリを起動（少し遅延してダウンロード開始を確実に）
-      const subject = encodeURIComponent(documentTitle);
-      const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
-      setTimeout(() => {
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      }, 500);
-
-      showStatus("PDFをダウンロードしました");
-      setOpen(false);
-    } finally {
-      setSharing(false);
-    }
-  };
+  // メール専用ボタンは削除済み
+  // 理由: mailto:リンクではPDF添付が技術的に不可能（RFC上ファイル添付パラメータが存在しない）
+  // Web Share APIの共有先にメールアプリ（Gmail等）が含まれるため、「アプリで共有」に統合で十分
+  // PC向けにはダウンロード→手動添付のフローで対応
 
   // PDFダウンロードのみ
   const downloadPdf = async () => {
@@ -207,7 +186,7 @@ export default function SharePdfModal({
             </div>
 
             <div className="p-2">
-              {/* アプリで共有 — LINE等にPDF付きで送信 */}
+              {/* アプリで共有（Web Share API対応端末） — 共有シートからLINE・Gmail等を選べる */}
               {supportsNativeShare && (
                 <button
                   onClick={() => shareNative()}
@@ -220,7 +199,7 @@ export default function SharePdfModal({
                     </svg>
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">LINE・アプリで共有</p>
+                    <p className="text-sm font-bold text-gray-800">アプリで共有</p>
                     <p className="text-xs text-gray-500">
                       {supportsFileShare
                         ? "LINE・メール等にPDFを直接送信"
@@ -231,23 +210,13 @@ export default function SharePdfModal({
                 </button>
               )}
 
-              {/* メールで送る — 共有シートを経由しない安定ルート */}
-              <button
-                onClick={() => shareViaMail()}
-                disabled={!pdfReady}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-red-50 active:bg-red-100" : "opacity-50 cursor-wait"}`}
-              >
-                <span className="w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-full text-lg flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
-                    <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                  <p className="text-xs text-gray-500">PDF保存後、メール作成画面で添付</p>
+              {/* PC向けフォールバック — Web Share API非対応時にガイドテキストを表示 */}
+              {!supportsNativeShare && (
+                <div className="px-4 py-3 text-xs text-gray-500 bg-gray-50 rounded-xl">
+                  <p className="font-bold text-gray-700 text-sm mb-1">共有するには</p>
+                  <p>PDFをダウンロード後、LINE・メール等に添付して送信してください。</p>
                 </div>
-              </button>
+              )}
 
               {/* ダウンロードのみ */}
               <button
