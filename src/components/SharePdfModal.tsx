@@ -70,55 +70,61 @@ export default function SharePdfModal({
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
 
-  // アプリで共有（Web Share API）— 共有シートからLINE・メール等を選べる
-  // filesのみで共有（title/textを含めるとiOS share extensionが不安定になる問題を回避）
-  // 重要: モーダルを閉じずに共有を実行（DOM変更によるiOS share extension強制終了を防止）
-  const shareNative = async () => {
-    setSharing(true);
-    try {
-      const blob = await getBlob();
-      if (!blob) return;
-      const file = new File([blob], fileName, { type: "application/pdf" });
+  // 共有の共通処理 — 共有中はstateを一切変更せずDOMを凍結する
+  // iOS share extension（特にGmail）がDOM変更で強制終了する問題を回避
+  const sharingRef = useRef(false);
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] });
-      } else if (navigator.share) {
-        downloadBlob(blob);
-        await navigator.share({
-          title: documentTitle,
-          text: `${documentTitle}をお送りします。`,
-        });
-      } else {
-        downloadBlob(blob);
-      }
+  const doShare = async (shareData: ShareData) => {
+    if (sharingRef.current) return;
+    sharingRef.current = true;
+    try {
+      // 重要: navigator.share()が完了するまでsetStateを呼ばない（DOM凍結）
+      await navigator.share(shareData);
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
         showStatus("共有に失敗しました");
       }
     } finally {
-      setSharing(false);
+      sharingRef.current = false;
       setOpen(false);
     }
   };
 
-  // メールで送る（PDFダウンロード + mailto:でメール作成画面を開く）
-  // iOSでデフォルトメールアプリがGmailなら自動的にGmailで開く
-  // Web Share API経由のGmail share extensionが不安定なため、こちらを推奨
-  const shareViaMail = async () => {
-    setSharing(true);
-    try {
-      const blob = await getBlob();
-      if (!blob) return;
+  // アプリで共有（Web Share API）— 共有シートからLINE・メール等を選べる
+  const shareNative = async () => {
+    const blob = await getBlob();
+    if (!blob) return;
+    const file = new File([blob], fileName, { type: "application/pdf" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await doShare({ files: [file] });
+    } else if (typeof navigator.share === "function") {
       downloadBlob(blob);
-      // mailto:でメール作成画面を開く（iOSのデフォルトメールアプリで起動）
+      await doShare({ title: documentTitle, text: `${documentTitle}をお送りします。` });
+    } else {
+      downloadBlob(blob);
+    }
+  };
+
+  // メールで送る（Web Share API + title/textを含めてメールアプリに最適化）
+  // filesのみだとGmail share extensionが不安定だが、title/text付きだとメール本文に反映される
+  const shareViaMail = async () => {
+    const blob = await getBlob();
+    if (!blob) return;
+    const file = new File([blob], fileName, { type: "application/pdf" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await doShare({
+        files: [file],
+        title: documentTitle,
+        text: `${documentTitle}をお送りします。`,
+      });
+    } else {
+      // Web Share API非対応: ダウンロード + mailto:
+      downloadBlob(blob);
       const subject = encodeURIComponent(documentTitle);
       const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
       window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      showStatus("PDFをダウンロードしました。メールに添付してください");
-    } catch {
-      showStatus("送信の準備に失敗しました");
-    } finally {
-      setSharing(false);
       setOpen(false);
     }
   };
