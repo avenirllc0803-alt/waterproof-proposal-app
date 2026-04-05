@@ -78,25 +78,86 @@ export default function InvoicePage() {
       const { jsPDF } = await import("jspdf");
       const element = previewRef.current;
       if (!element) return null;
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-      const imgData = canvas.toDataURL("image/png");
+
+      // PDF生成時にコンテナ幅を固定してA4比率を正確にする
+      const origStyle = element.getAttribute("style") || "";
+      element.style.width = "794px";
+      element.style.maxWidth = "794px";
+      element.style.minHeight = "auto";
+      element.style.padding = "40px";
+
+      const h2cScale = 2;
+      const canvas = await html2canvas(element, { scale: h2cScale, useCORS: true, backgroundColor: "#ffffff" });
+
+      // スタイルを元に戻す
+      element.setAttribute("style", origStyle);
+
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       const pageHeight = pdf.internal.pageSize.getHeight();
-      let position = 0;
-      if (pdfHeight <= pageHeight) {
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+      const marginMm = 10;
+      const contentAreaW = pdfWidth - marginMm * 2;
+      const contentAreaH = pageHeight - marginMm * 2;
+
+      const scaleFactor = contentAreaW / canvas.width;
+      const contentHeight = canvas.height * scaleFactor;
+
+      if (contentHeight <= contentAreaH) {
+        const imgData = canvas.toDataURL("image/png");
+        pdf.addImage(imgData, "PNG", marginMm, marginMm, contentAreaW, contentHeight);
       } else {
-        let heightLeft = pdfHeight;
-        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-        while (heightLeft > 0) {
-          position -= pageHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
+        const sectionEls = element.querySelectorAll("[data-pdf-section]");
+        const containerRect = element.getBoundingClientRect();
+
+        const breakPoints: number[] = [0];
+        sectionEls.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const topInCanvas = (rect.top - containerRect.top) * h2cScale;
+          breakPoints.push(Math.round(topInCanvas));
+        });
+        breakPoints.push(canvas.height);
+
+        const pageCanvasHeight = Math.floor(contentAreaH / scaleFactor);
+
+        const pageBreaks: { srcY: number; height: number }[] = [];
+        let currentPageStart = 0;
+
+        for (let i = 1; i < breakPoints.length; i++) {
+          const nextBreak = breakPoints[i];
+          const currentPageHeight = nextBreak - currentPageStart;
+          if (currentPageHeight > pageCanvasHeight && i > 1 && breakPoints[i - 1] > currentPageStart) {
+            const cutAt = breakPoints[i - 1];
+            pageBreaks.push({ srcY: currentPageStart, height: cutAt - currentPageStart });
+            currentPageStart = cutAt;
+          }
         }
+        if (currentPageStart < canvas.height) {
+          pageBreaks.push({ srcY: currentPageStart, height: canvas.height - currentPageStart });
+        }
+
+        if (pageBreaks.length === 0) {
+          let srcY = 0;
+          while (srcY < canvas.height) {
+            const sliceHeight = Math.min(pageCanvasHeight, canvas.height - srcY);
+            pageBreaks.push({ srcY, height: sliceHeight });
+            srcY += sliceHeight;
+          }
+        }
+
+        pageBreaks.forEach((slice, pageNum) => {
+          const pageCanvas = document.createElement("canvas");
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = slice.height;
+          const ctx = pageCanvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(canvas, 0, slice.srcY, canvas.width, slice.height, 0, 0, canvas.width, slice.height);
+          }
+          const pageImgData = pageCanvas.toDataURL("image/png");
+          const sliceMmHeight = slice.height * scaleFactor;
+          if (pageNum > 0) pdf.addPage();
+          pdf.addImage(pageImgData, "PNG", marginMm, marginMm, contentAreaW, sliceMmHeight);
+        });
       }
       return pdf.output("blob");
     } catch (err) {
@@ -269,74 +330,74 @@ export default function InvoicePage() {
 
       <div className="max-w-4xl lg:max-w-full mx-auto lg:px-10 xl:px-16 p-4">
         <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "48px", minHeight: "297mm", maxWidth: "210mm", margin: "0 auto" }}>
-          <h1 className="text-4xl font-bold text-center mb-10 tracking-widest">請 求 書</h1>
+          <h1 data-pdf-section className="text-3xl font-bold text-center mb-6 tracking-widest">請 求 書</h1>
 
-          <div className="flex justify-between items-start mb-8">
+          <div className="flex justify-between items-start mb-6">
             <div>
-              <p className="text-xl font-bold border-b-2 border-gray-800 pb-1 inline-block">{form.customerName}</p>
-              <p className="text-base text-gray-600 mt-2">工事名：{form.propertyName}</p>
+              <p className="text-lg font-bold border-b-2 border-gray-800 pb-1 inline-block">{form.customerName}</p>
+              <p className="text-sm text-gray-600 mt-2">工事名：{form.propertyName}</p>
             </div>
-            <div className="text-right text-base text-gray-600">
-              <p className="font-medium text-lg">{form.companyName}</p>
-              {form.companyAddress && <p className="text-sm">{form.companyAddress}</p>}
-              {form.companyPhone && <p className="text-sm">TEL: {form.companyPhone}</p>}
-              {form.companyRepresentative && <p className="text-sm">担当: {form.companyRepresentative}</p>}
+            <div className="text-right text-sm text-gray-600">
+              <p className="font-medium text-base">{form.companyName}</p>
+              {form.companyAddress && <p className="text-xs">{form.companyAddress}</p>}
+              {form.companyPhone && <p className="text-xs">TEL: {form.companyPhone}</p>}
+              {form.companyRepresentative && <p className="text-xs">担当: {form.companyRepresentative}</p>}
               <p className="mt-1">請求書番号：{invoiceNumber}</p>
               <p>発行日：{form.date.replace(/-/g, "/")}</p>
               <p>お支払期限：{dueDate.replace(/-/g, "/")}</p>
             </div>
           </div>
 
-          <div className="bg-gray-50 border-2 border-gray-800 rounded-lg p-5 mb-8 text-center">
-            <p className="text-base text-gray-600 mb-1">ご請求金額（税込）</p>
-            <p className="text-4xl font-bold">¥{formatNumber(total)}-</p>
+          <div data-pdf-section className="bg-gray-50 border-2 border-gray-800 rounded-lg p-4 mb-6 text-center">
+            <p className="text-sm text-gray-600 mb-1">ご請求金額（税込）</p>
+            <p className="text-3xl font-bold">¥{formatNumber(total)}-</p>
           </div>
 
           {items.length > 0 && (
-            <table className="w-full border-collapse mb-8 text-base">
+            <table className="w-full border-collapse mb-6 text-sm">
               <thead>
                 <tr className="bg-gray-800 text-white">
-                  <th className="py-3 px-3 text-left">No.</th>
-                  <th className="py-3 px-3 text-left">項目名</th>
-                  <th className="py-3 px-3 text-right">数量</th>
-                  <th className="py-3 px-3 text-center">単位</th>
-                  <th className="py-3 px-3 text-right">単価</th>
-                  <th className="py-3 px-3 text-right">金額</th>
+                  <th className="py-2 px-2 text-left">No.</th>
+                  <th className="py-2 px-2 text-left">項目名</th>
+                  <th className="py-2 px-2 text-right">数量</th>
+                  <th className="py-2 px-2 text-center">単位</th>
+                  <th className="py-2 px-2 text-right">単価</th>
+                  <th className="py-2 px-2 text-right">金額</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, i) => (
-                  <tr key={item.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="py-2.5 px-3 border-b">{i + 1}</td>
-                    <td className="py-2.5 px-3 border-b">{item.name}{item.note && <span className="text-sm text-gray-400 ml-1">({item.note})</span>}</td>
-                    <td className="py-2.5 px-3 border-b text-right">{item.quantity}</td>
-                    <td className="py-2.5 px-3 border-b text-center">{item.unit}</td>
-                    <td className="py-2.5 px-3 border-b text-right">¥{formatNumber(item.unitPrice)}</td>
-                    <td className="py-2.5 px-3 border-b text-right font-medium">¥{formatNumber(item.quantity * item.unitPrice)}</td>
+                  <tr key={item.id} data-pdf-section className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <td className="py-1.5 px-2 border-b">{i + 1}</td>
+                    <td className="py-1.5 px-2 border-b">{item.name}{item.note && <span className="text-xs text-gray-400 ml-1">({item.note})</span>}</td>
+                    <td className="py-1.5 px-2 border-b text-right">{item.quantity}</td>
+                    <td className="py-1.5 px-2 border-b text-center">{item.unit}</td>
+                    <td className="py-1.5 px-2 border-b text-right">¥{formatNumber(item.unitPrice)}</td>
+                    <td className="py-1.5 px-2 border-b text-right font-medium">¥{formatNumber(item.quantity * item.unitPrice)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
 
-          <div className="flex justify-end">
-            <div className="w-72">
-              <div className="flex justify-between py-2 border-b text-base"><span>小計</span><span>¥{formatNumber(subtotal)}</span></div>
-              <div className="flex justify-between py-2 border-b text-base"><span>消費税（{taxRate}%）</span><span>¥{formatNumber(tax)}</span></div>
-              <div className="flex justify-between py-3 text-xl font-bold"><span>合計</span><span>¥{formatNumber(total)}</span></div>
+          <div data-pdf-section className="flex justify-end">
+            <div className="w-64">
+              <div className="flex justify-between py-1.5 border-b text-sm"><span>小計</span><span>¥{formatNumber(subtotal)}</span></div>
+              <div className="flex justify-between py-1.5 border-b text-sm"><span>消費税（{taxRate}%）</span><span>¥{formatNumber(tax)}</span></div>
+              <div className="flex justify-between py-2 text-lg font-bold"><span>合計</span><span>¥{formatNumber(total)}</span></div>
             </div>
           </div>
 
           {/* 振込先 */}
-          <div className="mt-8 border-t pt-4">
-            <p className="text-base font-bold text-gray-700 mb-2">お振込先</p>
-            <p className="text-base text-gray-600 whitespace-pre-wrap bg-gray-50 rounded-lg p-4">{bankInfo}</p>
+          <div data-pdf-section className="mt-6 border-t pt-3">
+            <p className="text-sm font-bold text-gray-700 mb-1">お振込先</p>
+            <p className="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{bankInfo}</p>
           </div>
 
           {notes && (
-            <div className="mt-4 border-t pt-4">
-              <p className="text-base font-bold text-gray-700 mb-2">備考</p>
-              <p className="text-base text-gray-600 whitespace-pre-wrap">{notes}</p>
+            <div data-pdf-section className="mt-4 border-t pt-3">
+              <p className="text-sm font-bold text-gray-700 mb-1">備考</p>
+              <p className="text-sm text-gray-600 whitespace-pre-wrap">{notes}</p>
             </div>
           )}
         </div>

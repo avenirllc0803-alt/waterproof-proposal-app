@@ -50,6 +50,12 @@ export default function PreviewPage() {
       const element = previewRef.current;
       if (!element) return null;
 
+      // PDF生成時にコンテナ幅を固定してA4比率を正確にする
+      const origStyle = element.getAttribute("style") || "";
+      element.style.width = "794px";
+      element.style.maxWidth = "794px";
+      element.style.minHeight = "auto";
+
       // html2canvasのscale倍率
       const h2cScale = 2;
 
@@ -58,6 +64,9 @@ export default function PreviewPage() {
         useCORS: true,
         backgroundColor: "#ffffff",
       });
+
+      // スタイルを元に戻す
+      element.setAttribute("style", origStyle);
 
       const pdf = new jsPDF({
         orientation: "portrait",
