@@ -111,8 +111,7 @@ export default function SharePdfModal({
   };
 
   // メールで送る（PDFダウンロード + mailto:でメール作成画面を同時に開く）
-  // iOS Safari: window.location.hrefだとダウンロード中断の恐れがあるため
-  // 隠しiframeでmailto:を発火させてダウンロードと干渉しないようにする
+  // mailto:はページ遷移ではなくOSのメールハンドラ起動なのでダウンロードと干渉しない
   const shareViaMail = async () => {
     const blob = await getBlob();
     if (!blob) return;
@@ -120,24 +119,14 @@ export default function SharePdfModal({
     // 1. PDFダウンロードを開始
     downloadBlob(blob);
 
-    // 2. mailto:を別経路で発火（ダウンロードを中断させない）
+    // 2. mailto:でメールアプリを起動（少し遅延してダウンロード開始を確実に）
     const subject = encodeURIComponent(documentTitle);
     const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
-    const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
-
     setTimeout(() => {
-      // iframeでmailto:を発火 — location.hrefと違いページ遷移しない
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = mailtoUrl;
-      document.body.appendChild(iframe);
-      // iframeが効かない環境のフォールバック（PCブラウザ等）
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 2000);
-    }, 300);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }, 500);
 
-    showStatus("PDF保存中…メールアプリも起動します");
+    showStatus("PDFを保存しました。メールに添付してください");
     setOpen(false);
   };
 
@@ -207,10 +196,10 @@ export default function SharePdfModal({
                     </svg>
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">LINEで共有</p>
+                    <p className="text-sm font-bold text-gray-800">アプリで共有</p>
                     <p className="text-xs text-gray-500">
                       {supportsFileShare
-                        ? "LINEにPDFを直接送信"
+                        ? "LINE等のアプリにPDFを直接送信"
                         : "共有シートを開く（PDFは別途ダウンロード）"
                       }
                     </p>
