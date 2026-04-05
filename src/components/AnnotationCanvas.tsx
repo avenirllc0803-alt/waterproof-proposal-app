@@ -13,7 +13,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Tool = "select" | "circle" | "arrow" | "text" | "rectangle";
+type Tool = "select" | "circle" | "arrow" | "doubleArrow" | "text" | "rectangle";
 type HandleType = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "start" | "end" | "move" | "none";
 
 const COLORS = [
@@ -34,7 +34,7 @@ function getBBox(a: Annotation) {
   if (a.type === "rectangle") {
     return { x1: Math.min(a.x, a.x + (a.width || 0)), y1: Math.min(a.y, a.y + (a.height || 0)), x2: Math.max(a.x, a.x + (a.width || 0)), y2: Math.max(a.y, a.y + (a.height || 0)) };
   }
-  if (a.type === "arrow") {
+  if (a.type === "arrow" || a.type === "doubleArrow") {
     return { x1: Math.min(a.x, a.endX || a.x), y1: Math.min(a.y, a.endY || a.y), x2: Math.max(a.x, a.endX || a.x), y2: Math.max(a.y, a.endY || a.y) };
   }
   return { x1: a.x, y1: a.y, x2: a.x + 100, y2: a.y + 30 };
@@ -50,7 +50,7 @@ function hitShape(a: Annotation, x: number, y: number): boolean {
     return d < 1.3;
   }
   if (a.type === "rectangle") return x >= bb.x1 - pad && x <= bb.x2 + pad && y >= bb.y1 - pad && y <= bb.y2 + pad;
-  if (a.type === "arrow" && a.endX !== undefined && a.endY !== undefined) {
+  if ((a.type === "arrow" || a.type === "doubleArrow") && a.endX !== undefined && a.endY !== undefined) {
     const len = Math.hypot(a.endX - a.x, a.endY - a.y);
     if (len < 1) return false;
     const t = Math.max(0, Math.min(1, ((x - a.x) * (a.endX - a.x) + (y - a.y) * (a.endY - a.y)) / (len * len)));
@@ -61,7 +61,7 @@ function hitShape(a: Annotation, x: number, y: number): boolean {
 
 function getHandles(a: Annotation): { type: HandleType; x: number; y: number }[] {
   if (a.type === "text") return [];
-  if (a.type === "arrow") return [{ type: "start", x: a.x, y: a.y }, { type: "end", x: a.endX || a.x, y: a.endY || a.y }];
+  if (a.type === "arrow" || a.type === "doubleArrow") return [{ type: "start", x: a.x, y: a.y }, { type: "end", x: a.endX || a.x, y: a.endY || a.y }];
   const bb = getBBox(a);
   const cx = (bb.x1 + bb.x2) / 2, cy = (bb.y1 + bb.y2) / 2;
   return [
@@ -344,16 +344,27 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         ctx.beginPath(); ctx.ellipse(a.x, a.y, Math.abs(a.radiusX), Math.abs(a.radiusY), 0, 0, Math.PI * 2);
         if (a.filled) { ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1; }
         ctx.stroke();
-      } else if (a.type === "arrow" && a.endX !== undefined && a.endY !== undefined) {
+      } else if ((a.type === "arrow" || a.type === "doubleArrow") && a.endX !== undefined && a.endY !== undefined) {
         const hl = 12 + lw * 2;
         const ang = Math.atan2(a.endY - a.y, a.endX - a.x);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.endX, a.endY); ctx.stroke();
+        // 終点の矢じり
         ctx.beginPath();
         ctx.moveTo(a.endX, a.endY);
         ctx.lineTo(a.endX - hl * Math.cos(ang - Math.PI / 6), a.endY - hl * Math.sin(ang - Math.PI / 6));
         ctx.moveTo(a.endX, a.endY);
         ctx.lineTo(a.endX - hl * Math.cos(ang + Math.PI / 6), a.endY - hl * Math.sin(ang + Math.PI / 6));
         ctx.stroke();
+        // 双方向矢印: 始点にも矢じりを描画
+        if (a.type === "doubleArrow") {
+          const angBack = ang + Math.PI;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(a.x - hl * Math.cos(angBack - Math.PI / 6), a.y - hl * Math.sin(angBack - Math.PI / 6));
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(a.x - hl * Math.cos(angBack + Math.PI / 6), a.y - hl * Math.sin(angBack + Math.PI / 6));
+          ctx.stroke();
+        }
       } else if (a.type === "rectangle" && a.width !== undefined && a.height !== undefined) {
         if (a.filled) { ctx.globalAlpha = 0.3; ctx.fillRect(a.x, a.y, a.width, a.height); ctx.globalAlpha = 1; }
         ctx.strokeRect(a.x, a.y, a.width, a.height);
@@ -361,7 +372,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
       if (isSel) {
         const handles = getHandles(a);
-        if (a.type !== "arrow") {
+        if (a.type !== "arrow" && a.type !== "doubleArrow") {
           const bb = getBBox(a);
           ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
           ctx.strokeRect(bb.x1 - 3, bb.y1 - 3, bb.x2 - bb.x1 + 6, bb.y2 - bb.y1 + 6);
@@ -381,7 +392,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
         let rx = Math.abs(currentPos.x - startPos.x) / 2, ry = Math.abs(currentPos.y - startPos.y) / 2;
         if (shiftHeld) { const r = Math.max(rx, ry); rx = r; ry = r; }
         if (rx > 2 || ry > 2) { ctx.beginPath(); ctx.ellipse((startPos.x + currentPos.x) / 2, (startPos.y + currentPos.y) / 2, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); }
-      } else if (tool === "arrow") {
+      } else if (tool === "arrow" || tool === "doubleArrow") {
         ctx.beginPath(); ctx.moveTo(startPos.x, startPos.y); ctx.lineTo(currentPos.x, currentPos.y); ctx.stroke();
       } else if (tool === "rectangle") {
         let w = currentPos.x - startPos.x, h = currentPos.y - startPos.y;
@@ -494,8 +505,8 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       let rx = Math.abs(ep.x - startPos.x) / 2, ry = Math.abs(ep.y - startPos.y) / 2;
       if (shiftHeld) { const r = Math.max(rx, ry); rx = r; ry = r; }
       if (rx > 3 || ry > 3) { setAnns((p) => [...p, { id, type: "circle", x: (startPos.x + ep.x) / 2, y: (startPos.y + ep.y) / 2, radiusX: rx, radiusY: ry, color, lineWidth }]); setSelId(id); setTool("select"); }
-    } else if (tool === "arrow") {
-      if (Math.hypot(ep.x - startPos.x, ep.y - startPos.y) > 10) { setAnns((p) => [...p, { id, type: "arrow", x: startPos.x, y: startPos.y, endX: ep.x, endY: ep.y, color, lineWidth }]); setSelId(id); setTool("select"); }
+    } else if (tool === "arrow" || tool === "doubleArrow") {
+      if (Math.hypot(ep.x - startPos.x, ep.y - startPos.y) > 10) { setAnns((p) => [...p, { id, type: tool, x: startPos.x, y: startPos.y, endX: ep.x, endY: ep.y, color, lineWidth }]); setSelId(id); setTool("select"); }
     } else if (tool === "rectangle") {
       let w = ep.x - startPos.x, h = ep.y - startPos.y;
       if (shiftHeld) { const s = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w) * s; h = Math.sign(h) * s; }
@@ -537,7 +548,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           ctx.beginPath(); ctx.ellipse(a.x, a.y, Math.abs(a.radiusX), Math.abs(a.radiusY), 0, 0, Math.PI * 2);
           if (a.filled) { ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1; }
           ctx.stroke();
-        } else if (a.type === "arrow" && a.endX !== undefined && a.endY !== undefined) {
+        } else if ((a.type === "arrow" || a.type === "doubleArrow") && a.endX !== undefined && a.endY !== undefined) {
           const hl = 12 + lw * 2; const ang = Math.atan2(a.endY - a.y, a.endX - a.x);
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.endX, a.endY); ctx.stroke();
           ctx.beginPath();
@@ -546,6 +557,15 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
           ctx.moveTo(a.endX, a.endY);
           ctx.lineTo(a.endX - hl * Math.cos(ang + Math.PI / 6), a.endY - hl * Math.sin(ang + Math.PI / 6));
           ctx.stroke();
+          if (a.type === "doubleArrow") {
+            const angBack = ang + Math.PI;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(a.x - hl * Math.cos(angBack - Math.PI / 6), a.y - hl * Math.sin(angBack - Math.PI / 6));
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(a.x - hl * Math.cos(angBack + Math.PI / 6), a.y - hl * Math.sin(angBack + Math.PI / 6));
+            ctx.stroke();
+          }
         } else if (a.type === "rectangle" && a.width !== undefined && a.height !== undefined) {
           if (a.filled) { ctx.globalAlpha = 0.3; ctx.fillRect(a.x, a.y, a.width, a.height); ctx.globalAlpha = 1; }
           ctx.strokeRect(a.x, a.y, a.width, a.height);
@@ -573,7 +593,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
 
   const allTools: { id: Tool; label: string }[] = [
     { id: "select", label: "↖ 選択" }, { id: "circle", label: "⭕ 丸" },
-    { id: "rectangle", label: "▢ 四角" }, { id: "arrow", label: "➡ 矢印" }, { id: "text", label: "T 文字" },
+    { id: "rectangle", label: "▢ 四角" }, { id: "arrow", label: "→ 矢印" }, { id: "doubleArrow", label: "↔ 双方向" }, { id: "text", label: "T 文字" },
   ];
 
   // Apple Pencil + タッチ + マウス全対応: 3系統イベントでデバウンス発火
@@ -659,7 +679,7 @@ export default function AnnotationCanvas({ imageUrl, annotations, onAnnotationsC
       )}
 
       {/* 丸・四角・矢印選択時プロパティ */}
-      {sel && (sel.type === "circle" || sel.type === "rectangle" || sel.type === "arrow") && (
+      {sel && (sel.type === "circle" || sel.type === "rectangle" || sel.type === "arrow" || sel.type === "doubleArrow") && (
         <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 border-t border-gray-700 flex-shrink-0" style={{ minHeight: 40, touchAction: "manipulation" }}>
           <span className="text-gray-400 text-sm">色:</span>
           {COLORS.map((c) => (

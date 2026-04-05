@@ -72,7 +72,7 @@ export default function SharePdfModal({
 
   // アプリで共有（Web Share API）— 共有シートからLINE・メール等を選べる
   // filesのみで共有（title/textを含めるとiOS share extensionが不安定になる問題を回避）
-  // share完了後の状態更新を遅延し、iOS share extensionの途中閉じを防止
+  // 重要: モーダルを閉じずに共有を実行（DOM変更によるiOS share extension強制終了を防止）
   const shareNative = async () => {
     setSharing(true);
     try {
@@ -82,26 +82,22 @@ export default function SharePdfModal({
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file] });
-        // iOS: share extensionがまだ開いている可能性があるため、状態更新を遅延
-        setTimeout(() => showStatus("共有しました"), 500);
       } else if (navigator.share) {
         downloadBlob(blob);
         await navigator.share({
           title: documentTitle,
           text: `${documentTitle}をお送りします。`,
         });
-        setTimeout(() => showStatus("PDFをダウンロードしました。添付してください。"), 500);
       } else {
         downloadBlob(blob);
-        showStatus("PDFをダウンロードしました");
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
         showStatus("共有に失敗しました");
       }
     } finally {
-      // iOS share extension保護: 状態変更による再レンダリングを遅延
-      setTimeout(() => setSharing(false), 1000);
+      setSharing(false);
+      setOpen(false);
     }
   };
 
@@ -161,7 +157,7 @@ export default function SharePdfModal({
               {/* アプリで共有 — Web Share API対応時に表示（LINE・メール等にPDF付きで送信） */}
               {supportsNativeShare && (
                 <button
-                  onClick={() => { setOpen(false); shareNative(); }}
+                  onClick={() => shareNative()}
                   disabled={!pdfReady}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-blue-50 active:bg-blue-100" : "opacity-50 cursor-wait"}`}
                 >
@@ -184,7 +180,7 @@ export default function SharePdfModal({
 
               {/* ダウンロードのみ — 全デバイス共通 */}
               <button
-                onClick={() => { setOpen(false); downloadPdf(); }}
+                onClick={() => { downloadPdf(); setOpen(false); }}
                 disabled={!pdfReady}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-gray-50 active:bg-gray-100" : "opacity-50 cursor-wait"}`}
               >

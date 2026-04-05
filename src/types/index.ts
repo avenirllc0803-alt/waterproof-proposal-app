@@ -7,7 +7,7 @@ export interface CustomerInfo {
 
 export interface Annotation {
   id: string;
-  type: "circle" | "arrow" | "text" | "rectangle";
+  type: "circle" | "arrow" | "doubleArrow" | "text" | "rectangle";
   x: number;
   y: number;
   radiusX?: number;
