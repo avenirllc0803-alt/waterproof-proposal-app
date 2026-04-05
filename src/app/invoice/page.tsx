@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerInfo, EstimateItem } from "@/types";
 import { demoEstimateItems } from "@/data/estimateTemplates";
@@ -72,7 +72,7 @@ export default function InvoicePage() {
   const total = subtotal + tax;
   const formatNumber = (n: number) => n.toLocaleString("ja-JP");
 
-  const generatePdfBlob = async (): Promise<Blob | null> => {
+  const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
@@ -165,7 +165,7 @@ export default function InvoicePage() {
       alert("PDF生成に失敗しました。");
       return null;
     }
-  };
+  }, []); // previewRefはref（安定参照）なので依存不要
 
   const generatePdf = async () => {
     setGenerating(true);

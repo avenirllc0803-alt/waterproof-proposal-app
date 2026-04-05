@@ -30,9 +30,13 @@
   3. 「LINE・アプリで共有」をタップ → 共有シートが表示されることを確認
   4. 連打しても二重に処理が走らないことを確認
 
-### 親コンポーネント側のgeneratePdfBlobのメモ化（将来改善）
-- 根本的にはestimate/invoice/previewの各ページで`generatePdfBlob`を`useCallback`で囲むのがベストプラクティス。
-- 今回はSharePdfModal側でrefを使って回避したが、将来的に他のコンポーネントから`generatePdfBlob`を使う場合は親側のメモ化も検討。
+### ~~親コンポーネント側のgeneratePdfBlobのメモ化~~ → **対応済み（2026-04-05）**
+- estimate/invoice/previewの3ファイルで`generatePdfBlob`を`useCallback(fn, [])`でメモ化済み。
+- invoice/page.tsxには`useCallback`のimportも追加済み。
+- これによりSharePdfModal側のref回避策と合わせて、PDF再生成ループの根本原因を完全に解消。
+
+### ~~downloadPdfの連打防止~~ → **対応済み（2026-04-05）**
+- `downloadPdf`関数に`if (sharing) return;`ガードを追加済み。
 
 ### Web Share APIのブラウザ互換性
 - `navigator.canShare({ files: [...] })` はiOS 15+, Android Chrome 76+で対応。
@@ -42,10 +46,31 @@
 - `mailto:`スキームではPDFファイルを添付できない（全OS共通の仕様）。
 - 「メールで送る」は「PDFをダウンロード」+「メール作成画面を開く」の2ステップになる。ユーザーが手動で添付する必要あり。
 
+## 追加修正（2026-04-05 AI-Managementセッションから）
+
+### 修正4: downloadPdfに二重実行防止ガード追加
+- **ファイル**: `src/components/SharePdfModal.tsx`
+- **修正**: `downloadPdf`関数の冒頭に`if (sharing) return;`を追加。shareNative/shareViaMailと同じパターン。
+
+### 修正5-7: 親3ファイルのgeneratePdfBlobをuseCallback化
+- **ファイル**: `estimate/page.tsx`, `invoice/page.tsx`, `preview/page.tsx`
+- **修正**: `const generatePdfBlob = async () => ...` → `const generatePdfBlob = useCallback(async () => ..., [])`
+- **理由**: previewRefはref（安定参照）なので依存配列は空でOK。これにより毎レンダリングで新しい関数参照が作られる根本原因を解消。
+- **invoice/page.tsx**: `useCallback`のimportも追加（estimate/previewは既にimport済みだった）。
+
+## MCPレジストリ調査結果（2026-04-05）
+
+見積書・請求書・PDF生成に特化したMCPコネクタは現時点でレジストリに未登録。
+検索キーワード: invoice, estimate, PDF, document generation, proposal, construction, waterproof, puppeteer, html render, screenshot, print → すべて結果なし。
+
+**現在のhtml2canvas + jsPDF方式が現実的なベストプラクティス**。将来的に以下が出てきたら検討：
+- Puppeteer/Playwright系のPDF生成MCP（ヘッドレスブラウザでHTML→PDF）
+- テンプレートエンジン系（Docxtemplater等）のMCP
+
 ## 関連ファイル
 | ファイル | 役割 |
 |---------|------|
 | `src/components/SharePdfModal.tsx` | 共有モーダルUI + 共有ロジック |
-| `src/app/estimate/page.tsx` | 見積書（generatePdfBlob定義あり） |
-| `src/app/invoice/page.tsx` | 請求書（generatePdfBlob定義あり） |
-| `src/app/preview/page.tsx` | 提案書プレビュー（generatePdfBlob定義あり） |
+| `src/app/estimate/page.tsx` | 見積書（generatePdfBlob定義あり・useCallback化済み） |
+| `src/app/invoice/page.tsx` | 請求書（generatePdfBlob定義あり・useCallback化済み） |
+| `src/app/preview/page.tsx` | 提案書プレビュー（generatePdfBlob定義あり・useCallback化済み） |

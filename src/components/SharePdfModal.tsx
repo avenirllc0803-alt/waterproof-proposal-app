@@ -155,6 +155,7 @@ export default function SharePdfModal({
 
   // PDFダウンロードのみ
   const downloadPdf = async () => {
+    if (sharing) return;
     setSharing(true);
     try {
       const blob = await getBlob();

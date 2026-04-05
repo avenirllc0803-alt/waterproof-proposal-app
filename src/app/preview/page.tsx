@@ -42,7 +42,7 @@ export default function PreviewPage() {
     setSections(JSON.parse(storedSections));
   }, [router]);
 
-  const generatePdfBlob = async (): Promise<Blob | null> => {
+  const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
@@ -157,7 +157,7 @@ export default function PreviewPage() {
       alert("PDF生成に失敗しました。もう一度お試しください。");
       return null;
     }
-  };
+  }, []); // previewRefはref（安定参照）なので依存不要
 
   const generatePdf = async () => {
     setGenerating(true);
