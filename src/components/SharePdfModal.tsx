@@ -9,6 +9,8 @@ interface SharePdfModalProps {
   theme?: "green" | "orange";
 }
 
+type View = "menu" | "email";
+
 export default function SharePdfModal({
   generatePdfBlob,
   fileName,
@@ -16,10 +18,14 @@ export default function SharePdfModal({
   theme = "green",
 }: SharePdfModalProps) {
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<View>("menu");
   const [sharing, setSharing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [pdfReady, setPdfReady] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [sending, setSending] = useState(false);
   const cachedBlobRef = useRef<Blob | null>(null);
+  const sharingRef = useRef(false);
 
   const bgClass = theme === "orange" ? "bg-orange-600 hover:bg-orange-700 active:bg-orange-800" : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800";
 
@@ -49,6 +55,8 @@ export default function SharePdfModal({
     } else {
       cachedBlobRef.current = null;
       setPdfReady(false);
+      setView("menu");
+      setEmailTo("");
     }
   }, [open, preGeneratePdf]);
 
@@ -70,15 +78,25 @@ export default function SharePdfModal({
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
 
-  // 共有の共通処理 — 共有中はstateを一切変更せずDOMを凍結する
-  // iOS share extension（特にGmail）がDOM変更で強制終了する問題を回避
-  const sharingRef = useRef(false);
+  // BlobをBase64文字列に変換
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        // "data:application/pdf;base64," の部分を除去
+        resolve(dataUrl.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
 
+  // 共有の共通処理 — 共有中はstateを一切変更せずDOMを凍結する
   const doShare = async (shareData: ShareData) => {
     if (sharingRef.current) return;
     sharingRef.current = true;
     try {
-      // 重要: navigator.share()が完了するまでsetStateを呼ばない（DOM凍結）
       await navigator.share(shareData);
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
@@ -90,7 +108,7 @@ export default function SharePdfModal({
     }
   };
 
-  // アプリで共有（Web Share API）— 共有シートからLINE・メール等を選べる
+  // アプリで共有（Web Share API）— 共有シートからLINE等を選べる
   const shareNative = async () => {
     const blob = await getBlob();
     if (!blob) return;
@@ -106,26 +124,41 @@ export default function SharePdfModal({
     }
   };
 
-  // メールで送る（Web Share API + title/textを含めてメールアプリに最適化）
-  // filesのみだとGmail share extensionが不安定だが、title/text付きだとメール本文に反映される
-  const shareViaMail = async () => {
-    const blob = await getBlob();
-    if (!blob) return;
-    const file = new File([blob], fileName, { type: "application/pdf" });
+  // メールで送る（Resend API経由でサーバーからPDF添付メールを送信）
+  const sendEmail = async () => {
+    if (!emailTo.trim()) return;
+    setSending(true);
+    try {
+      const blob = await getBlob();
+      if (!blob) {
+        showStatus("PDFの生成に失敗しました");
+        return;
+      }
+      const pdfBase64 = await blobToBase64(blob);
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await doShare({
-        files: [file],
-        title: documentTitle,
-        text: `${documentTitle}をお送りします。`,
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: emailTo.trim(),
+          subject: documentTitle,
+          body: `${documentTitle}をお送りします。添付のPDFをご確認ください。`,
+          pdfBase64,
+          fileName,
+        }),
       });
-    } else {
-      // Web Share API非対応: ダウンロード + mailto:
-      downloadBlob(blob);
-      const subject = encodeURIComponent(documentTitle);
-      const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      setOpen(false);
+
+      const result = await res.json();
+      if (res.ok && result.success) {
+        showStatus("メールを送信しました");
+        setOpen(false);
+      } else {
+        showStatus(result.error || "送信に失敗しました");
+      }
+    } catch {
+      showStatus("送信に失敗しました");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -151,11 +184,11 @@ export default function SharePdfModal({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        disabled={sharing}
+        disabled={sharing || sending}
         className={`px-5 py-3 ${bgClass} text-white rounded-xl text-base font-bold disabled:opacity-50 transition-colors shadow`}
         style={{ touchAction: "manipulation", minHeight: 48 }}
       >
-        {sharing ? "処理中..." : "共有・送信"}
+        {sharing || sending ? "処理中..." : "共有・送信"}
       </button>
 
       {status && (
@@ -166,81 +199,132 @@ export default function SharePdfModal({
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => !sending && setOpen(false)} />
 
-          <div className="absolute right-0 bottom-full mb-2 bg-white rounded-2xl shadow-2xl border border-gray-200 w-72 z-50 overflow-hidden">
+          <div className="absolute right-0 bottom-full mb-2 bg-white rounded-2xl shadow-2xl border border-gray-200 w-80 z-50 overflow-hidden">
+            {/* ヘッダー */}
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <p className="text-sm font-bold text-gray-700">PDFを共有・送信</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {pdfReady ? "送信方法を選んでください" : "PDF準備中..."}
-              </p>
-              {!pdfReady && (
-                <div className="mt-1.5 w-full bg-gray-200 rounded-full h-1">
-                  <div className="bg-blue-500 h-1 rounded-full animate-pulse" style={{ width: "60%" }} />
+              {view === "menu" ? (
+                <>
+                  <p className="text-sm font-bold text-gray-700">PDFを共有・送信</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {pdfReady ? "送信方法を選んでください" : "PDF準備中..."}
+                  </p>
+                  {!pdfReady && (
+                    <div className="mt-1.5 w-full bg-gray-200 rounded-full h-1">
+                      <div className="bg-blue-500 h-1 rounded-full animate-pulse" style={{ width: "60%" }} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setView("menu")}
+                    className="text-gray-500 hover:text-gray-700 -ml-1 p-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-sm font-bold text-gray-700">メールでPDFを送信</p>
                 </div>
               )}
             </div>
 
-            <div className="p-2">
-              {/* アプリで共有 — Web Share API対応時に表示（LINE・メール等にPDF付きで送信） */}
-              {supportsNativeShare && (
+            {/* メニュー表示 */}
+            {view === "menu" && (
+              <div className="p-2">
+                {/* アプリで共有 — Web Share API対応時に表示（LINE等にPDF付きで送信） */}
+                {supportsNativeShare && (
+                  <button
+                    onClick={() => shareNative()}
+                    disabled={!pdfReady}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-blue-50 active:bg-blue-100" : "opacity-50 cursor-wait"}`}
+                  >
+                    <span className="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full text-lg flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path fillRule="evenodd" d="M15.75 4.5a3 3 0 11.825 2.066l-8.421 4.679a3.002 3.002 0 010 1.51l8.421 4.679a3 3 0 11-.729 1.31l-8.421-4.678a3 3 0 110-4.132l8.421-4.679a3 3 0 01-.096-.755z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">アプリで共有</p>
+                      <p className="text-xs text-gray-500">
+                        {supportsFileShare
+                          ? "LINE等にPDFを直接送信"
+                          : "共有シートを開く（PDFは別途ダウンロード）"
+                        }
+                      </p>
+                    </div>
+                  </button>
+                )}
+
+                {/* メールで送る — サーバー経由でPDF添付メール送信 */}
                 <button
-                  onClick={() => shareNative()}
+                  onClick={() => setView("email")}
                   disabled={!pdfReady}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-blue-50 active:bg-blue-100" : "opacity-50 cursor-wait"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-red-50 active:bg-red-100" : "opacity-50 cursor-wait"}`}
                 >
-                  <span className="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full text-lg flex-shrink-0">
+                  <span className="w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-full text-lg flex-shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                      <path fillRule="evenodd" d="M15.75 4.5a3 3 0 11.825 2.066l-8.421 4.679a3.002 3.002 0 010 1.51l8.421 4.679a3 3 0 11-.729 1.31l-8.421-4.678a3 3 0 110-4.132l8.421-4.679a3 3 0 01-.096-.755z" clipRule="evenodd" />
+                      <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
+                      <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
                     </svg>
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">アプリで共有</p>
-                    <p className="text-xs text-gray-500">
-                      {supportsFileShare
-                        ? "LINE・メール等にPDFを直接送信"
-                        : "共有シートを開く（PDFは別途ダウンロード）"
-                      }
-                    </p>
+                    <p className="text-sm font-bold text-gray-800">メールで送る</p>
+                    <p className="text-xs text-gray-500">宛先を入力してPDF添付メールを送信</p>
                   </div>
                 </button>
-              )}
 
-              {/* メールで送る — iOS share extensionの不具合回避用 */}
-              <button
-                onClick={() => shareViaMail()}
-                disabled={!pdfReady}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-red-50 active:bg-red-100" : "opacity-50 cursor-wait"}`}
-              >
-                <span className="w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-full text-lg flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
-                    <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                  <p className="text-xs text-gray-500">PDFダウンロード後にメールアプリを起動</p>
-                </div>
-              </button>
+                {/* ダウンロードのみ — 全デバイス共通 */}
+                <button
+                  onClick={() => { downloadPdf(); setOpen(false); }}
+                  disabled={!pdfReady}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-gray-50 active:bg-gray-100" : "opacity-50 cursor-wait"}`}
+                >
+                  <span className="w-10 h-10 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full text-lg flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">ダウンロードのみ</p>
+                    <p className="text-xs text-gray-500">PDFファイルを端末に保存</p>
+                  </div>
+                </button>
+              </div>
+            )}
 
-              {/* ダウンロードのみ — 全デバイス共通 */}
-              <button
-                onClick={() => { downloadPdf(); setOpen(false); }}
-                disabled={!pdfReady}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-gray-50 active:bg-gray-100" : "opacity-50 cursor-wait"}`}
-              >
-                <span className="w-10 h-10 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full text-lg flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-gray-800">ダウンロードのみ</p>
-                  <p className="text-xs text-gray-500">PDFファイルを端末に保存</p>
-                </div>
-              </button>
-            </div>
+            {/* メール送信フォーム */}
+            {view === "email" && (
+              <div className="p-4">
+                <label className="block text-xs font-bold text-gray-600 mb-1.5">
+                  送信先メールアドレス
+                </label>
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="example@gmail.com"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus
+                  disabled={sending}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && emailTo.trim()) sendEmail();
+                  }}
+                />
+                <p className="text-xs text-gray-400 mt-1.5">
+                  PDF添付のメールが送信されます
+                </p>
+                <button
+                  onClick={sendEmail}
+                  disabled={!emailTo.trim() || sending}
+                  className="w-full mt-3 px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors"
+                >
+                  {sending ? "送信中..." : "送信する"}
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
