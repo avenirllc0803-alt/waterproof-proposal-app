@@ -70,13 +70,9 @@ export default function SharePdfModal({
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
 
-  // デバイス判定
-  const isMobile = typeof navigator !== "undefined" && /iPhone|iPod|Android(?!.*Tablet)/i.test(navigator.userAgent);
-  const isTablet = typeof navigator !== "undefined" && /iPad|Android.*Tablet|Macintosh.*Intel.*Touch/i.test(navigator.userAgent);
-  const isPC = !isMobile && !isTablet;
-
   // アプリで共有（Web Share API）— 共有シートからLINE・メール等を選べる
   // filesのみで共有（title/textを含めるとiOS share extensionが不安定になる問題を回避）
+  // share完了後の状態更新を遅延し、iOS share extensionの途中閉じを防止
   const shareNative = async () => {
     setSharing(true);
     try {
@@ -86,14 +82,15 @@ export default function SharePdfModal({
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file] });
-        showStatus("共有しました");
+        // iOS: share extensionがまだ開いている可能性があるため、状態更新を遅延
+        setTimeout(() => showStatus("共有しました"), 500);
       } else if (navigator.share) {
         downloadBlob(blob);
         await navigator.share({
           title: documentTitle,
           text: `${documentTitle}をお送りします。`,
         });
-        showStatus("PDFをダウンロードしました。添付してください。");
+        setTimeout(() => showStatus("PDFをダウンロードしました。添付してください。"), 500);
       } else {
         downloadBlob(blob);
         showStatus("PDFをダウンロードしました");
@@ -103,18 +100,9 @@ export default function SharePdfModal({
         showStatus("共有に失敗しました");
       }
     } finally {
-      setSharing(false);
+      // iOS share extension保護: 状態変更による再レンダリングを遅延
+      setTimeout(() => setSharing(false), 1000);
     }
-  };
-
-  // メールで送る（PC向け: mailtoでメール作成画面を開く）
-  const shareEmail = () => {
-    const subject = encodeURIComponent(documentTitle);
-    const body = encodeURIComponent(
-      `${documentTitle}をお送りいたします。\n\n添付のPDFファイルをご確認ください。\n\nよろしくお願いいたします。`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    showStatus("PDFの添付は「アプリで共有」→メールをご利用ください");
   };
 
   // PDFダウンロードのみ
@@ -170,7 +158,7 @@ export default function SharePdfModal({
             </div>
 
             <div className="p-2">
-              {/* アプリで共有 — 全デバイスでWeb Share API対応時に表示 */}
+              {/* アプリで共有 — Web Share API対応時に表示（LINE・メール等にPDF付きで送信） */}
               {supportsNativeShare && (
                 <button
                   onClick={() => { setOpen(false); shareNative(); }}
@@ -190,25 +178,6 @@ export default function SharePdfModal({
                         : "共有シートを開く（PDFは別途ダウンロード）"
                       }
                     </p>
-                  </div>
-                </button>
-              )}
-
-              {/* メールで送る — PC向け（mailtoでメール作成画面を開く） */}
-              {isPC && (
-                <button
-                  onClick={() => { setOpen(false); shareEmail(); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left hover:bg-orange-50 active:bg-orange-100"
-                >
-                  <span className="w-10 h-10 flex items-center justify-center bg-orange-100 text-orange-600 rounded-full text-lg flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                      <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
-                      <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
-                    </svg>
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                    <p className="text-xs text-gray-500">メール作成画面を開く</p>
                   </div>
                 </button>
               )}
