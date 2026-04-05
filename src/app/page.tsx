@@ -25,6 +25,9 @@ export default function Home() {
         propertyName: "サンプルマンション 屋上防水工事",
         date: new Date().toISOString().split("T")[0],
         companyName: "防水工房サンプル",
+        companyAddress: "東京都新宿区西新宿1-1-1",
+        companyPhone: "03-1234-5678",
+        companyRepresentative: "山田 太郎",
       })
     );
     sessionStorage.setItem("useDemo", "true");

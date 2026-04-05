@@ -17,6 +17,9 @@ export default function ProposalPage() {
     propertyName: "",
     date: new Date().toISOString().split("T")[0],
     companyName: "",
+    companyAddress: "",
+    companyPhone: "",
+    companyRepresentative: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,6 +78,47 @@ export default function ProposalPage() {
               autoComplete="off"
               data-lpignore="true"
             />
+          </div>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">会社住所</label>
+            <input
+              type="text"
+              name="company_address_field"
+              value={form.companyAddress || ""}
+              onChange={(e) => setForm({ ...form, companyAddress: e.target.value })}
+              className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+              placeholder="東京都○○区○○1-2-3"
+              autoComplete="off"
+              data-lpignore="true"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-base font-bold text-gray-700 mb-2">電話番号</label>
+              <input
+                type="tel"
+                name="company_phone_field"
+                value={form.companyPhone || ""}
+                onChange={(e) => setForm({ ...form, companyPhone: e.target.value })}
+                className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                placeholder="03-1234-5678"
+                autoComplete="off"
+                data-lpignore="true"
+              />
+            </div>
+            <div>
+              <label className="block text-base font-bold text-gray-700 mb-2">担当者名</label>
+              <input
+                type="text"
+                name="company_rep_field"
+                value={form.companyRepresentative || ""}
+                onChange={(e) => setForm({ ...form, companyRepresentative: e.target.value })}
+                className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                placeholder="山田 太郎"
+                autoComplete="off"
+                data-lpignore="true"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">

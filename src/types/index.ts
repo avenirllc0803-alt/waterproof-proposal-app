@@ -3,6 +3,9 @@ export interface CustomerInfo {
   propertyName: string;
   date: string;
   companyName: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyRepresentative?: string;
 }
 
 export interface Annotation {

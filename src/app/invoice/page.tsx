@@ -16,6 +16,9 @@ export default function InvoicePage() {
     propertyName: "",
     date: new Date().toISOString().split("T")[0],
     companyName: "",
+    companyAddress: "",
+    companyPhone: "",
+    companyRepresentative: "",
   });
   const [items, setItems] = useState<EstimateItem[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState(() => {
@@ -53,6 +56,9 @@ export default function InvoicePage() {
         propertyName: "サンプルマンション 屋上防水工事",
         date: new Date().toISOString().split("T")[0],
         companyName: "防水工房サンプル",
+        companyAddress: "東京都新宿区西新宿1-1-1",
+        companyPhone: "03-1234-5678",
+        companyRepresentative: "山田 太郎",
       });
       setItems(demoEstimateItems.map((d, i) => ({ ...d, id: `demo-${i}` })));
       setBankInfo("サンプル銀行 渋谷支店 普通 1234567\n口座名義：カ）ボウスイコウボウサンプル");
@@ -178,6 +184,23 @@ export default function InvoicePage() {
                 className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg" placeholder="株式会社○○防水" />
             </div>
             <div>
+              <label className="block text-base font-bold text-gray-700 mb-2">会社住所</label>
+              <input type="text" value={form.companyAddress || ""} onChange={(e) => setForm({ ...form, companyAddress: e.target.value })}
+                className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg" placeholder="東京都○○区○○1-2-3" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-base font-bold text-gray-700 mb-2">電話番号</label>
+                <input type="tel" value={form.companyPhone || ""} onChange={(e) => setForm({ ...form, companyPhone: e.target.value })}
+                  className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg" placeholder="03-1234-5678" />
+              </div>
+              <div>
+                <label className="block text-base font-bold text-gray-700 mb-2">担当者名</label>
+                <input type="text" value={form.companyRepresentative || ""} onChange={(e) => setForm({ ...form, companyRepresentative: e.target.value })}
+                  className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg" placeholder="山田 太郎" />
+              </div>
+            </div>
+            <div>
               <label className="block text-base font-bold text-gray-700 mb-2">お客様名 <span className="text-red-500 text-sm font-normal">（必須）</span></label>
               <input type="text" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })}
                 className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg" placeholder="○○不動産 様" required />
@@ -255,6 +278,9 @@ export default function InvoicePage() {
             </div>
             <div className="text-right text-base text-gray-600">
               <p className="font-medium text-lg">{form.companyName}</p>
+              {form.companyAddress && <p className="text-sm">{form.companyAddress}</p>}
+              {form.companyPhone && <p className="text-sm">TEL: {form.companyPhone}</p>}
+              {form.companyRepresentative && <p className="text-sm">担当: {form.companyRepresentative}</p>}
               <p className="mt-1">請求書番号：{invoiceNumber}</p>
               <p>発行日：{form.date.replace(/-/g, "/")}</p>
               <p>お支払期限：{dueDate.replace(/-/g, "/")}</p>

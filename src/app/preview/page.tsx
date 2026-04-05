@@ -266,6 +266,15 @@ export default function PreviewPage() {
                   <p style={{ fontWeight: 600, fontSize: 14, margin: 0 }}>
                     {customerInfo.companyName}
                   </p>
+                  {customerInfo.companyAddress && (
+                    <p style={{ margin: "2px 0 0" }}>{customerInfo.companyAddress}</p>
+                  )}
+                  {customerInfo.companyPhone && (
+                    <p style={{ margin: "2px 0 0" }}>TEL: {customerInfo.companyPhone}</p>
+                  )}
+                  {customerInfo.companyRepresentative && (
+                    <p style={{ margin: "2px 0 0" }}>担当: {customerInfo.companyRepresentative}</p>
+                  )}
                   <p style={{ margin: "2px 0 0" }}>
                     作成日：{customerInfo.date.replace(/-/g, "/")}
                   </p>
