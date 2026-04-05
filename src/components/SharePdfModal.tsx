@@ -126,7 +126,7 @@ export default function SharePdfModal({
       window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }, 500);
 
-    showStatus("PDFを保存しました。メールに添付してください");
+    showStatus("PDFをダウンロードしました");
     setOpen(false);
   };
 
@@ -196,10 +196,10 @@ export default function SharePdfModal({
                     </svg>
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">アプリで共有</p>
+                    <p className="text-sm font-bold text-gray-800">LINE・アプリで共有</p>
                     <p className="text-xs text-gray-500">
                       {supportsFileShare
-                        ? "LINE等のアプリにPDFを直接送信"
+                        ? "LINE・メール等にPDFを直接送信"
                         : "共有シートを開く（PDFは別途ダウンロード）"
                       }
                     </p>
@@ -221,7 +221,7 @@ export default function SharePdfModal({
                 </span>
                 <div>
                   <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                  <p className="text-xs text-gray-500">PDFダウンロード＋メール画面を同時に起動</p>
+                  <p className="text-xs text-gray-500">PDF保存後、メール作成画面で添付</p>
                 </div>
               </button>
 

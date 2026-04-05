@@ -125,7 +125,7 @@ export default function EstimatePage() {
       element.style.width = "794px";
       element.style.maxWidth = "794px";
       element.style.minHeight = "auto";
-      element.style.padding = "40px";
+      element.style.padding = "28px 32px";
 
       const h2cScale = 2;
       const canvas = await html2canvas(element, { scale: h2cScale, useCORS: true, backgroundColor: "#ffffff" });
@@ -516,33 +516,33 @@ export default function EstimatePage() {
       </div>
 
       <div className="max-w-4xl lg:max-w-full xl:max-w-full mx-auto p-4 lg:px-12 xl:px-16">
-        <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "48px", minHeight: "297mm", maxWidth: "210mm", margin: "0 auto" }}>
+        <div ref={previewRef} className="bg-white shadow-lg" style={{ padding: "32px", minHeight: "297mm", maxWidth: "210mm", margin: "0 auto" }}>
           {/* 見積書ヘッダー */}
-          <h1 data-pdf-section className="text-3xl font-bold text-center mb-6 tracking-widest">御 見 積 書</h1>
+          <h1 data-pdf-section className="text-2xl font-bold text-center mb-4 tracking-widest">御 見 積 書</h1>
 
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-lg font-bold border-b-2 border-gray-800 pb-1 inline-block">{form.customerName}</p>
-              <p className="text-sm text-gray-600 mt-2">工事名：{form.propertyName}</p>
+              <p className="text-base font-bold border-b-2 border-gray-800 pb-1 inline-block">{form.customerName}</p>
+              <p className="text-xs text-gray-600 mt-1">工事名：{form.propertyName}</p>
             </div>
-            <div className="text-right text-sm text-gray-600">
-              <p className="font-medium text-base">{form.companyName}</p>
-              {form.companyAddress && <p className="text-xs">{form.companyAddress}</p>}
-              {form.companyPhone && <p className="text-xs">TEL: {form.companyPhone}</p>}
-              {form.companyRepresentative && <p className="text-xs">担当: {form.companyRepresentative}</p>}
-              <p className="mt-1">見積日：{form.date.replace(/-/g, "/")}</p>
+            <div className="text-right text-xs text-gray-600">
+              <p className="font-medium text-sm">{form.companyName}</p>
+              {form.companyAddress && <p>{form.companyAddress}</p>}
+              {form.companyPhone && <p>TEL: {form.companyPhone}</p>}
+              {form.companyRepresentative && <p>担当: {form.companyRepresentative}</p>}
+              <p className="mt-0.5">見積日：{form.date.replace(/-/g, "/")}</p>
               <p>有効期限：{validUntil.replace(/-/g, "/")}</p>
             </div>
           </div>
 
           {/* 合計金額 */}
-          <div data-pdf-section className="bg-gray-50 border-2 border-gray-800 rounded-lg p-4 mb-6 text-center">
-            <p className="text-sm text-gray-600 mb-1">お見積金額（税込）</p>
-            <p className="text-3xl font-bold">¥{formatNumber(total)}-</p>
+          <div data-pdf-section className="bg-gray-50 border-2 border-gray-800 rounded-lg p-3 mb-4 text-center">
+            <p className="text-xs text-gray-600 mb-0.5">お見積金額（税込）</p>
+            <p className="text-2xl font-bold">¥{formatNumber(total)}-</p>
           </div>
 
           {/* 明細テーブル */}
-          <table className="w-full border-collapse mb-6 text-sm">
+          <table className="w-full border-collapse mb-4 text-xs">
             <thead>
               <tr className="bg-gray-800 text-white">
                 <th className="py-2 px-2 text-left">No.</th>
@@ -572,14 +572,14 @@ export default function EstimatePage() {
 
           {/* 合計欄 */}
           <div data-pdf-section className="flex justify-end">
-            <div className="w-64">
-              <div className="flex justify-between py-1.5 border-b text-sm">
+            <div className="w-56">
+              <div className="flex justify-between py-1 border-b text-xs">
                 <span>小計</span><span>¥{formatNumber(subtotal)}</span>
               </div>
-              <div className="flex justify-between py-1.5 border-b text-sm">
+              <div className="flex justify-between py-1 border-b text-xs">
                 <span>消費税（{taxRate}%）</span><span>¥{formatNumber(tax)}</span>
               </div>
-              <div className="flex justify-between py-2 text-lg font-bold">
+              <div className="flex justify-between py-1.5 text-base font-bold">
                 <span>合計</span><span>¥{formatNumber(total)}</span>
               </div>
             </div>
@@ -587,9 +587,9 @@ export default function EstimatePage() {
 
           {/* 備考 */}
           {notes && (
-            <div data-pdf-section className="mt-6 border-t pt-3">
-              <p className="text-sm font-bold text-gray-700 mb-1">備考</p>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap">{notes}</p>
+            <div data-pdf-section className="mt-4 border-t pt-2">
+              <p className="text-xs font-bold text-gray-700 mb-1">備考</p>
+              <p className="text-xs text-gray-600 whitespace-pre-wrap">{notes}</p>
             </div>
           )}
         </div>
