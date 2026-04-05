@@ -101,26 +101,20 @@ export default function SharePdfModal({
     }
   };
 
-  // Gmailで送る（iOSのWeb Share API経由だとGmail share extensionが不安定なため直接起動）
-  const shareViaGmail = async () => {
+  // メールで送る（PDFダウンロード + mailto:でメール作成画面を開く）
+  // iOSでデフォルトメールアプリがGmailなら自動的にGmailで開く
+  // Web Share API経由のGmail share extensionが不安定なため、こちらを推奨
+  const shareViaMail = async () => {
     setSharing(true);
     try {
       const blob = await getBlob();
       if (!blob) return;
       downloadBlob(blob);
-      // Gmail作成画面を直接開く
+      // mailto:でメール作成画面を開く（iOSのデフォルトメールアプリで起動）
       const subject = encodeURIComponent(documentTitle);
       const body = encodeURIComponent(`${documentTitle}をお送りします。\n\n※ダウンロードされたPDFファイルを添付してください。`);
-      // iOSではGmailアプリのURLスキームを試み、失敗時はWeb版にフォールバック
-      const gmailAppUrl = `googlegmail:///co?subject=${subject}&body=${body}`;
-      const gmailWebUrl = `https://mail.google.com/mail/?view=cm&su=${subject}&body=${body}`;
-
-      // Gmailアプリを試行
-      const opened = window.open(gmailAppUrl, "_blank");
-      if (!opened) {
-        window.open(gmailWebUrl, "_blank");
-      }
-      showStatus("PDFをダウンロードしました。Gmailに添付してください");
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      showStatus("PDFをダウンロードしました。メールに添付してください");
     } catch {
       showStatus("送信の準備に失敗しました");
     } finally {
@@ -206,9 +200,9 @@ export default function SharePdfModal({
                 </button>
               )}
 
-              {/* Gmailで送る — iOS share extensionの不具合回避用 */}
+              {/* メールで送る — iOS share extensionの不具合回避用 */}
               <button
-                onClick={() => shareViaGmail()}
+                onClick={() => shareViaMail()}
                 disabled={!pdfReady}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-red-50 active:bg-red-100" : "opacity-50 cursor-wait"}`}
               >
@@ -219,8 +213,8 @@ export default function SharePdfModal({
                   </svg>
                 </span>
                 <div>
-                  <p className="text-sm font-bold text-gray-800">Gmailで送る</p>
-                  <p className="text-xs text-gray-500">PDFダウンロード後にGmailを起動</p>
+                  <p className="text-sm font-bold text-gray-800">メールで送る</p>
+                  <p className="text-xs text-gray-500">PDFダウンロード後にメールアプリを起動</p>
                 </div>
               </button>
 
