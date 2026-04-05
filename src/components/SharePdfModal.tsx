@@ -192,10 +192,10 @@ export default function SharePdfModal({
                     </svg>
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">アプリで共有</p>
+                    <p className="text-sm font-bold text-gray-800">LINEで共有</p>
                     <p className="text-xs text-gray-500">
                       {supportsFileShare
-                        ? "LINE等にPDFを直接送信"
+                        ? "LINEにPDFを直接送信"
                         : "共有シートを開く（PDFは別途ダウンロード）"
                       }
                     </p>
@@ -217,7 +217,7 @@ export default function SharePdfModal({
                 </span>
                 <div>
                   <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                  <p className="text-xs text-gray-500">PDFダウンロード → メールアプリ起動</p>
+                  <p className="text-xs text-gray-500">PDF保存後、メール作成画面で添付</p>
                 </div>
               </button>
 
