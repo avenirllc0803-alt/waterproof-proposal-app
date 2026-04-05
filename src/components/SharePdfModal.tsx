@@ -107,22 +107,14 @@ export default function SharePdfModal({
     }
   };
 
-  // メールで送る（PC向け: mailto + PDFダウンロード）
-  const shareEmail = async () => {
-    setSharing(true);
-    try {
-      const blob = await getBlob();
-      if (!blob) return;
-      const subject = encodeURIComponent(documentTitle);
-      const body = encodeURIComponent(
-        `${documentTitle}をお送りいたします。\n\n添付のPDFファイルをご確認ください。\n\nよろしくお願いいたします。`
-      );
-      downloadBlob(blob);
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
-    } finally {
-      setSharing(false);
-    }
+  // メールで送る（PC向け: mailtoでメール作成画面を開く）
+  const shareEmail = () => {
+    const subject = encodeURIComponent(documentTitle);
+    const body = encodeURIComponent(
+      `${documentTitle}をお送りいたします。\n\n添付のPDFファイルをご確認ください。\n\nよろしくお願いいたします。`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    showStatus("PDFの添付は「アプリで共有」→メールをご利用ください");
   };
 
   // PDFダウンロードのみ
@@ -202,12 +194,11 @@ export default function SharePdfModal({
                 </button>
               )}
 
-              {/* メールで送る — PC向け（mailto + PDFダウンロード） */}
+              {/* メールで送る — PC向け（mailtoでメール作成画面を開く） */}
               {isPC && (
                 <button
                   onClick={() => { setOpen(false); shareEmail(); }}
-                  disabled={!pdfReady}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-orange-50 active:bg-orange-100" : "opacity-50 cursor-wait"}`}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left hover:bg-orange-50 active:bg-orange-100"
                 >
                   <span className="w-10 h-10 flex items-center justify-center bg-orange-100 text-orange-600 rounded-full text-lg flex-shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -217,7 +208,7 @@ export default function SharePdfModal({
                   </span>
                   <div>
                     <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                    <p className="text-xs text-gray-500">メール作成＋PDFを自動ダウンロード</p>
+                    <p className="text-xs text-gray-500">メール作成画面を開く</p>
                   </div>
                 </button>
               )}
