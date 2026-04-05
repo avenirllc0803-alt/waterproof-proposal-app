@@ -73,7 +73,8 @@ export default function SharePdfModal({
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
 
-  // アプリで共有（Web Share API）— 共有シートからアプリを選べる
+  // アプリで共有（Web Share API）— 共有シートからLINE・メール等を選べる
+  // filesのみで共有し、textは含めない（LINEなど一部アプリがtextだけ受け取りファイルを無視する問題を回避）
   const shareNative = async () => {
     setSharing(true);
     try {
@@ -84,11 +85,10 @@ export default function SharePdfModal({
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: documentTitle,
-          text: `${documentTitle}をお送りします。`,
           files: [file],
         });
         showStatus("共有しました");
-      } else {
+      } else if (navigator.share) {
         // ファイル共有非対応: テキストのみ共有 + PDFダウンロード
         downloadBlob(blob);
         await navigator.share({
@@ -96,102 +96,15 @@ export default function SharePdfModal({
           text: `${documentTitle}をお送りします。`,
         });
         showStatus("PDFをダウンロードしました。添付してください。");
+      } else {
+        // Web Share API自体が非対応: ダウンロードのみ
+        downloadBlob(blob);
+        showStatus("PDFをダウンロードしました");
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
         showStatus("共有に失敗しました");
       }
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  // Web Share APIでPDF付き共有シートを開く共通関数
-  // キャッシュ済みBlobを使うので即座に呼べる（ジェスチャー失効しない）
-  const tryShareWithFile = async (blob: Blob, text: string): Promise<boolean> => {
-    try {
-      const file = new File([blob], fileName, { type: "application/pdf" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: documentTitle,
-          text,
-          files: [file],
-        });
-        return true;
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return true;
-      }
-      console.warn("[Share] Web Share API failed, falling back:", err);
-    }
-    return false;
-  };
-
-  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  // LINEで送る
-  // モバイル: Web Share API（共有シートからLINE選択）
-  // PC: LINE URLを直接開く + PDFダウンロード
-  const shareLINE = async () => {
-    setSharing(true);
-    try {
-      const blob = await getBlob();
-      if (!blob) return;
-
-      if (isMobile) {
-        const shared = await tryShareWithFile(blob, `${documentTitle}をお送りします。`);
-        if (shared) {
-          showStatus("共有しました");
-          return;
-        }
-      }
-
-      // PC or モバイルフォールバック: LINE URLを開く + PDFダウンロード
-      const message = encodeURIComponent(
-        `${documentTitle}をお送りします。\nPDFファイルを添付しますのでご確認ください。`
-      );
-      if (isMobile) {
-        window.location.href = `https://line.me/R/share?text=${message}`;
-      } else {
-        const w = window.open(`https://line.me/R/share?text=${message}`, "_blank");
-        if (!w) showStatus("ポップアップがブロックされました。許可してください。");
-      }
-      downloadBlob(blob);
-      showStatus("PDFをダウンロードしました。LINEに添付してください。");
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  // メールで送る
-  // モバイル: Web Share API（共有シートからメール選択）
-  // PC: mailtoを直接開く + PDFダウンロード
-  const shareEmail = async () => {
-    setSharing(true);
-    try {
-      const blob = await getBlob();
-      if (!blob) return;
-
-      if (isMobile) {
-        const shared = await tryShareWithFile(
-          blob,
-          `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
-        );
-        if (shared) {
-          showStatus("共有しました");
-          return;
-        }
-      }
-
-      // PC or モバイルフォールバック: mailtoを開く + PDFダウンロード
-      const subject = encodeURIComponent(documentTitle);
-      const body = encodeURIComponent(
-        `${documentTitle}をお送りいたします。\n\n添付ファイルをご確認ください。\n\nよろしくお願いいたします。`
-      );
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      downloadBlob(blob);
-      showStatus("メールを作成しました。ダウンロードしたPDFを添付してください。");
     } finally {
       setSharing(false);
     }
@@ -213,6 +126,7 @@ export default function SharePdfModal({
   };
 
   const supportsNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+  const supportsFileShare = typeof navigator !== "undefined" && typeof navigator.canShare === "function";
 
   return (
     <div className="relative">
@@ -262,41 +176,15 @@ export default function SharePdfModal({
                   </span>
                   <div>
                     <p className="text-sm font-bold text-gray-800">アプリで共有</p>
-                    <p className="text-xs text-gray-500">LINE・メール等にPDFを直接送信</p>
+                    <p className="text-xs text-gray-500">
+                      {supportsFileShare
+                        ? "LINE・メール等にPDFを直接送信"
+                        : "共有シートを開く（PDFは別途ダウンロード）"
+                      }
+                    </p>
                   </div>
                 </button>
               )}
-
-              <button
-                onClick={() => { setOpen(false); shareLINE(); }}
-                disabled={!pdfReady}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-green-50 active:bg-green-100" : "opacity-50 cursor-wait"}`}
-              >
-                <span className="w-10 h-10 flex items-center justify-center bg-green-500 text-white rounded-full text-lg font-bold flex-shrink-0">
-                  L
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-gray-800">LINEで送る</p>
-                  <p className="text-xs text-gray-500">LINEを開いてPDFを自動ダウンロード</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => { setOpen(false); shareEmail(); }}
-                disabled={!pdfReady}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${pdfReady ? "hover:bg-orange-50 active:bg-orange-100" : "opacity-50 cursor-wait"}`}
-              >
-                <span className="w-10 h-10 flex items-center justify-center bg-orange-100 text-orange-600 rounded-full text-lg flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
-                    <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-gray-800">メールで送る</p>
-                  <p className="text-xs text-gray-500">メール作成後、PDFを自動ダウンロード</p>
-                </div>
-              </button>
 
               <button
                 onClick={() => { setOpen(false); downloadPdf(); }}
