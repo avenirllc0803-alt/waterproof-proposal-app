@@ -54,3 +54,7 @@ docs/
 - サーバーサイド処理はCloudflare Pages Functionsで実装
 - PDF共有はWeb Share API優先、mailto:フォールバック（ファイル添付不可）
 - `tsconfig.json` で `functions/` は除外（Cloudflare Workers用の別ランタイム）
+
+### NotebookLM 運用ルール
+- ブラウザでNotebookLMを開く際は、Chrome拡張「Enhancer 4 Google」が有効であることを必ず確認する
+- notebooklm-py（CLI）で操作した後にブラウザで確認するステップがある場合も同様
