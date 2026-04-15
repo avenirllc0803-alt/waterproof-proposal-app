@@ -58,3 +58,6 @@ docs/
 ### NotebookLM 運用ルール
 - ブラウザでNotebookLMを開く際は、Chrome拡張「Enhancer 4 Google」が有効であることを必ず確認する
 - notebooklm-py（CLI）で操作した後にブラウザで確認するステップがある場合も同様
+
+## スキル変更ログ
+スキルを追加・変更・削除した場合は、Notionスキル変更ログDB（ID: 9cd8dec3-7867-4e12-a3f6-f761fe005b38）に記録してください。
