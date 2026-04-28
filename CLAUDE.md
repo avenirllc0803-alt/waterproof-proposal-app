@@ -61,3 +61,10 @@ docs/
 
 ## スキル変更ログ
 スキルを追加・変更・削除した場合は、Notionスキル変更ログDB（ID: 9cd8dec3-7867-4e12-a3f6-f761fe005b38）に記録してください。
+
+## 関連ガイドライン（avenir LLC全リポ共通）
+
+このリポでClaude Codeを使う際は、以下のガイドラインも参照してください。
+
+- `~/AI-Management/guidelines/claude-code-vs-codex.md` — Claude Code と Codex の使い分け基準
+- `~/AI-Management/guidelines/` — その他の共通ガイドライン一式
